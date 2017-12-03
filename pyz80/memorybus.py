@@ -44,7 +44,7 @@ class MemoryBus (object):
             while ramcount > 0:
                 pages.append((ramstart, ram))
                 ramcount -= 1
-        self.pages = tuple(pages)
+        self.pages = list(pages)
 
     def read(self, address):
         """Read from the specified address."""
