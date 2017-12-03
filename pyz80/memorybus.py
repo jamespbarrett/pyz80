@@ -21,56 +21,51 @@ class MemoryBus (object):
         size of the mapped region, and peripheral is an object which is an
         instance of class Peripheral."""
         self.size = size
-        self.mappings = mappings
-        self.data = bytearray(size)
+        pages = []
+        mappings = sorted(mappings, key=lambda m : m[0])
+        ramcount = 0
+        ramstart = 0
+        for n in range(0, (size + 255)/256):
+            if len(mappings) > 0 and n*256 >= mappings[0][0] and n*256 < mappings[0][0] + mappings[0][1]:
+                if ramcount > 0:
+                    ram = RAM(ramcount*256)
+                    while ramcount > 0:
+                        pages.append((ramstart, ram))
+                        ramcount -= 1
+                pages.append((mappings[0][0], mappings[0][2]))
+                if (n+1)*256 == mappings[0][0] + mappings[0][1]:
+                    mappings.pop(0)
+            else:
+                if ramcount == 0:
+                    ramstart = n
+                ramcount += 1
+        if ramcount > 0:
+            ram = RAM(ramcount*256)
+            while ramcount > 0:
+                pages.append((ramstart, ram))
+                ramcount -= 1
+        self.pages = tuple(pages)
 
     def read(self, address):
         """Read from the specified address."""
-        address %= self.size
-        for mapping in self.mappings:
-            if address >= mapping[0] and address < mapping[0] + mapping[1]:
-                return mapping[2].read(address - mapping[0])
-        return self.data[address]
+        return self.pages[(address >> 8)][1].read(address - self.pages[(address >> 8)][0])
 
     def write(self, address, data):
         """Write to the specified address."""
-        address %= self.size
-        for mapping in self.mappings:
-            if address >= mapping[0] and address < mapping[0] + mapping[1]:
-                return mapping[2].write(address - mapping[0], data)
-        self.data[address] = data
+        self.pages[(address >> 8)][1].write(address - self.pages[(address >> 8)][0], data)
 
     def memory_map(self, granularity=0x100):
         """Print a nice representation of the memory map."""
         mmap = []
-        segments = []
-        for mapping in self.mappings:
-            segments.append((mapping[0], mapping[1], mapping[2].description()))
-        segments = sorted(segments, key=lambda x : x[0])
-        n = 0
-        l = 0
-        while n*granularity < self.size:
-            if len(segments) == 0 or n*granularity < segments[0][0]:
-                if l == 0:
-                    mmap.append(("0x%04x +" + ('-'*71) + "+") % (n*granularity, ))
-                    mmap.append("       | RAM" + (' '*67) + "|")
-                else:
-                    mmap.append("       |" + (' '*71) + "|")
-                l += 1
+        periph = None
+        for n in range(0, (len(self.pages) << 8)/granularity):
+            page = self.pages[(n*granularity) >> 8]
+            if periph != page[1]:
+                periph = page[1]
+                mmap.append(("0x%04x +" + ('-'*71) + "+") % (n*granularity, ))
+                mmap.append(("       | %s" + (' '*(70 - len(page[1].description()))) + "|") % (page[1].description(), ))
             else:
-                if n*granularity == segments[0][0]:
-                    l = 0
-                    mmap.append(("0x%04x +" + ('-'*71) + "+") % (n*granularity, ))
-                    mmap.append(("       | %s" + (' '*(70 - len(segments[0][2]))) + "|") % (segments[0][2], ))
-                else:
-                    mmap.append("       |" + (' '*71) + "|")
-
-                if l*granularity < segments[0][1] and (l+1)*granularity >= segments[0][1]:
-                    l = 0
-                    segments.pop(0)
-                else:
-                    l += 1
-            n += 1
+                mmap.append("       |" + (' '*71) + "|")
         mmap.append("       +" + ('-'*71) + "+")
         return "\n".join(mmap)
 
@@ -89,6 +84,20 @@ class Peripheral (object):
     def description(self):
         """Return a single line description of this peripheral."""
         return "Generic Peripheral"
+
+class RAM (Peripheral):
+    def __init__(self, size):
+        self.size = size
+        self.data = bytearray(size)
+
+    def read (self, address):
+        return self.data[address % self.size]
+
+    def write (self, address, data):
+        self.data[address % self.size] = data&0xFF
+
+    def description(self):
+        return "RAM"
 
 class FileROM (Peripheral):
     def __init__(self, filename):
