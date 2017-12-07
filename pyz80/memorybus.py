@@ -8,7 +8,7 @@ This module includes a class which emulates such a data bus in a relatively
 simple fashion, as well as some options to map portions of this memory space to
 peripherals such as ROM chips and IO."""
 
-__all__ = [ "MemoryBus", "Peripheral", "FileROM" ]
+__all__ = [ "MemoryBus", "Peripheral", "FileROM", "RAM" ]
 
 class MemoryBus (object):
     """This class represents a memory bus."""
