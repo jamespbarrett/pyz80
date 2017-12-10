@@ -124,12 +124,78 @@ class SpectrumULA (object):
                                     pixdata >>= 1
                                 pixaddr += 0x100
 
+    class KeyboardIO(Device):
+        LSHIFT = 131074
+        RSHIFT = 131076
+
+        SHIFTED_DIGITS = [")",'!','@', u'\xa3','$','%','^','&','*','(']
+
+        KEY_CODES = [
+            [ '`',  'z', 'x', 'c', 'v' ],
+            [ 'a',  's', 'd', 'f', 'g' ],
+            [ 'q',  'w', 'e', 'r', 't' ],
+            [ '1',  '2', '3', '4', '5' ],
+            [ '0',  '9', '8', '7', '6' ],
+            [ 'p',  'o', 'i', 'u', 'y' ],
+            [ '\r', 'l', 'k', 'j', 'h' ],
+            [ ' ',  '/', 'm', 'n', 'b' ],
+            ]
+
+        def __init__(self, parent):
+            self.parent = parent
+            self.parent.window.bind("<KeyPress>"  , self._keypress)
+            self.parent.window.bind("<KeyRelease>", self._keyrelease)
+            self._keyflags = {}
+
+        def responds_to_port(self, p):
+            """The ULA should respond to every even numbered port."""
+            return ((p%2) == 0)
+
+        def read(self, address):
+            val = 0xFF
+            for n in range(0,8):
+                if ((address >> n)&0x1) == 0x0:
+                    if any(self._keyflags.get(k,False) for k in self.KEY_CODES[n]):
+                        cur = 0xE0
+                        for i in range(0,5):
+                            if all((not self._keyflags.get(self.KEY_CODES[r][i],False)) for r in range(0,8)):
+                                cur |= (1 << i)
+
+                        val &= cur
+            return val
+
+        def write(self, address, data):
+            pass
+
+        def _keypress(self, event):
+            if event.char != '':
+                c = event.char
+                if c in self.SHIFTED_DIGITS:
+                    c = str(self.SHIFTED_DIGITS.index(c))
+                self._keyflags[c.lower()] = True
+            elif event.keycode == self.LSHIFT:
+                self._keyflags['`'] = True
+            elif event.keycode == self.RSHIFT:
+                self._keyflags['/'] = True
+
+        def _keyrelease(self, event):
+            if event.char != '':
+                c = event.char
+                if c in self.SHIFTED_DIGITS:
+                    c = str(self.SHIFTED_DIGITS.index(c))
+                self._keyflags[c.lower()] = False
+            elif event.keycode == self.LSHIFT:
+                self._keyflags['`'] = False
+            elif event.keycode == self.RSHIFT:
+                self._keyflags['/'] = False
+
     def __init__(self, scale=4):
         self._running = True
         self.window = Tkinter.Tk()
         self.window.protocol("WM_DELETE_WINDOW", self.kill)
         self.scale = scale
         self.display = self.DisplayAdapter(self)
+        self.io = self.KeyboardIO(self)
 
     def running(self):
         """Returns true if the main window is still open."""
@@ -148,10 +214,12 @@ class SpectrumULA (object):
 
 if __name__ == "__main__": # pragma: no cover
     from memorybus import MemoryBus
+    from iobus import IOBus
 
     ula = SpectrumULA(scale=2)
     vid = ula.display
     bus = MemoryBus(mappings=[(0x4000, 0x1B00, vid)])
+    io  = IOBus([ ula.io ])
     for i in range(0,8):
         for j in range(0,32):
             bus.write(0x5800 + i*32 + j, (j&0x7) + ((i&0x7) << 3))
@@ -161,6 +229,8 @@ if __name__ == "__main__": # pragma: no cover
     for i in range(0,8):
         for j in range(0,32):
             bus.write(0x5A00 + i*32 + j, 0x40 + (j&0x7) + ((i&0x7) << 3))
+
+    ioval = [ io.read(0xFE, 0xFF - (1 << a)) for a in range(0,8) ]
 
     addr = 0x4000
     mode = "pixels"
@@ -178,4 +248,8 @@ if __name__ == "__main__": # pragma: no cover
             addr += 1
             if addr == 0x5B00:
                 addr = 0x5800
+        old_ioval = ioval
+        ioval = [ io.read(0xFE, 0xFF - (1 << a)) for a in range(0,8) ]
+        if ioval != old_ioval:
+            print ' '.join('%02x' % x for x in ioval)
         ula.update()
