@@ -8,7 +8,7 @@ This module includes a class which emulates such a data bus in a relatively
 simple fashion, as well as some options to map portions of this memory space to
 peripherals such as ROM chips and IO."""
 
-__all__ = [ "MemoryBus", "Peripheral", "FileROM", "RAM" ]
+__all__ = [ "MemoryBus", "Peripheral", "FileROM", "RAM", "ROM" ]
 
 class MemoryBus (object):
     """This class represents a memory bus."""
@@ -99,12 +99,13 @@ class RAM (Peripheral):
     def description(self):
         return "RAM"
 
-class FileROM (Peripheral):
-    def __init__(self, filename):
-        with open(filename, "r") as f:
-            self.data = bytes(f.read())
+class ROM (Peripheral):
+    def __init__(self, data, name="Custom ROM"):
+        if isinstance(data, list) or isinstance(data, tuple):
+            data = ''.join("%c" % x for x in data)
+        self.data = bytes(data)
         self.size = len(self.data)
-        self.filename = filename
+        self.name = name
 
     def read(self, address):
         return ord(self.data[address % self.size])
@@ -113,7 +114,13 @@ class FileROM (Peripheral):
         pass
 
     def description(self):
-        return "ROM ( %s )" % (self.filename,)
+        return "ROM ( %s )" % (self.name,)
+
+class FileROM (ROM):
+    def __init__(self, filename):
+        with open(filename, "r") as f:
+            data = bytes(f.read())
+        super(FileROM, self).__init__(data, name=filename)
 
 if __name__ == "__main__": # pragma: no cover
     bus = MemoryBus(mappings=[(0x00, 0x4000, FileROM("tmp.rom"))])
