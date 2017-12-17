@@ -8,9 +8,12 @@ class UnrecognisedInstructionError(Exception):
 
 # Actions which can be triggered at end of machine states
 
+def MB():
+    """This can be set as the action for an OPCODE that's actually the first byte of a multibyte sequence."""
+    raise Exception("Tried to execute the special MB action used to signal multibyte OPCODES")
+
 def JP(state, target):
     """Jump to the second parameter (an address)"""
-    print "!!!!JUMP TO {:X}!!!".format(target)
     state.cpu.reg.PC = target
 
 def LDr(reg):
@@ -90,8 +93,13 @@ class OCF(MachineState):
         yield
 
         (extra_clocks, actions, states) = decode_instruction(inst)
+        if MB in actions:
+            inst = (inst, self.cpu.membus.read(PC + 1))
+            (extra_clocks, actions, states) = decode_instruction(inst)
+            self.cpu.reg.PC = PC + 2
+        else:
+            self.cpu.reg.PC = PC + 1
         states = [ state().setcpu(self.cpu) for state in states ]
-        self.cpu.reg.PC = PC + 1
         yield
 
         for n in range(0,extra_clocks-1):
@@ -252,20 +260,29 @@ def MW(address=None, indirect=None, value=None, source=None):
 
             self.cpu.membus.write(self.address, self.value)
             raise StopIteration
-
+        
     return _MW
 
+def high_after_low(x,y):
+    return ((x << 8) | y)
+
 INSTRUCTION_STATES = {
+    # Single bytes opcodes
     0x00 : (0, [],                  [] ),                                                             # NOP
+    0x02 : (0, [],                  [ MW(indirect="BC", source="A") ]),                               # LD (BC),A
     0x06 : (0, [],                  [ OD(action=LDr('B')), ]),                                        # LD B,n
     0x0E : (0, [],                  [ OD(action=LDr('C')), ]),                                        # LD C,n
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ]),                          # LD A,(BC)
+    0x12 : (0, [],                  [ MW(indirect="DE", source="A") ]),                               # LD (DE),A
     0x16 : (0, [],                  [ OD(action=LDr('D')), ]),                                        # LD D,n
     0x1A : (0, [],                  [ MR(indirect="DE", action=LDr("A")) ]),                          # LD A,(DE)
     0x1E : (0, [],                  [ OD(action=LDr('E')), ]),                                        # LD E,n
     0x26 : (0, [],                  [ OD(action=LDr('H')), ]),                                        # LD H,n
     0x2E : (0, [],                  [ OD(action=LDr('L')), ]),                                        # LD L,n
-    0x3A : (0, [],                  [ OD(key="address"), OD(compound=(lambda x,y : ((x << 8) + y)),key="address"), MR(action=LDr("A")) ]), # LD A,(nn)
+    0x32 : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
+                                          MW(source="A") ]),                                          # LD (nn),A
+    0x3A : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
+                                          MR(action=LDr("A")) ]),                                     # LD A,(nn)
     0x3E : (0, [],                  [ OD(action=LDr('A')), ]),                                        # LD A,n
     0x40 : (0, [ LDrs('B', 'B'), ], [] ),                                                             # LD B,B
     0x41 : (0, [ LDrs('B', 'C'), ], [] ),                                                             # LD B,C
@@ -316,6 +333,12 @@ INSTRUCTION_STATES = {
     0x6E : (0, [],                  [ MR(indirect="HL", action=LDr("L")) ]),                          # LD L,(HL)
     0x6F : (0, [ LDrs('L', 'A'), ], [] ),                                                             # LD L,A
     0x70 : (0, [],                  [ MW(indirect="HL", source="B") ]),                               # LD (HL),B
+    0x71 : (0, [],                  [ MW(indirect="HL", source="C") ]),                               # LD (HL),C
+    0x72 : (0, [],                  [ MW(indirect="HL", source="D") ]),                               # LD (HL),D
+    0x73 : (0, [],                  [ MW(indirect="HL", source="E") ]),                               # LD (HL),E
+    0x74 : (0, [],                  [ MW(indirect="HL", source="H") ]),                               # LD (HL),H
+    0x75 : (0, [],                  [ MW(indirect="HL", source="L") ]),                               # LD (HL),L
+    0x77 : (0, [],                  [ MW(indirect="HL", source="A") ]),                               # LD (HL),A
     0x78 : (0, [ LDrs('A', 'B'), ], [] ),                                                             # LD A,B
     0x79 : (0, [ LDrs('A', 'C'), ], [] ),                                                             # LD A,C
     0x7A : (0, [ LDrs('A', 'D'), ], [] ),                                                             # LD A,D
@@ -324,7 +347,16 @@ INSTRUCTION_STATES = {
     0x7D : (0, [ LDrs('A', 'L'), ], [] ),                                                             # LD A,L
     0x7E : (0, [],                  [ MR(indirect="HL", action=LDr("A")) ]),                          # LD A, (HL)
     0x7F : (0, [ LDrs('A', 'A'), ], [] ),                                                             # LD A,A
-    0xC3 : (0, [],                  [ OD(), OD(compound=(lambda x,y : ((x << 8) + y)), action=JP) ]), # JP n n
+    0xC3 : (0, [],                  [ OD(), OD(compound=high_after_low, action=JP) ]),                # JP nn
+    0xED : (0, [MB], []),                                                                             # Byte one of multibyte OPCODE
+    0xDD : (0, [MB], []),                                                                             # Byte one of multibyte OPCODE
+    0xFD : (0, [MB], []),                                                                             # Byte one of multibyte OPCODE
+
+    # Multibyte opcodes
+    (0xED, 0x47) : (0, [LDrs('I', 'A'),], []),                                                        # LD I,A
+    (0xED, 0x4F) : (0, [LDrs('I', 'R'),], []),                                                        # LD R,A
+    (0xED, 0x57) : (0, [LDrs('A', 'I'),], []),                                                        # LD A,I
+    (0xED, 0x5F) : (0, [LDrs('A', 'R'),], []),                                                        # LD A,R
     }
 
 def decode_instruction(instruction):
