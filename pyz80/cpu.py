@@ -41,10 +41,8 @@ if __name__ == "__main__": #pragma: no cover
 
     program = [
         0x06, 0x55,       # LD B,55H
-        0x7E,             # LD A,B
-        0x4F,             # LD C,A
-        0x51,             # LD D,C
-        0xC3, 0x00, 0x00, # JP 00H,00H
+        0xDD, 0x7E, 0xFF, # LD A,(IX-01H)
+        0xC3, 0x00, 0x00, # JP 0000H
         ]
 
     ula    = SpectrumULA(scale=2)
@@ -55,6 +53,7 @@ if __name__ == "__main__": #pragma: no cover
     iobus  = IOBus([ ula.io ])
 
     cpu    = Z80CPU(iobus, membus)
+    cpu.reg.IX = 0x0001
 
     n = 0
     while True:

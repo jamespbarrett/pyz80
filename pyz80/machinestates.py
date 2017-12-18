@@ -28,6 +28,12 @@ def LDrs(r,s):
         setattr(state.cpu.reg, r, getattr(state.cpu.reg, s))
     return _inner
 
+def add_register(r):
+    """Load a value from the specified register and add it to the parameter"""
+    def _inner(state, d):
+        return getattr(state.cpu.reg, r) + d
+    return _inner
+
 # Machine States
 
 class MachineState(object):
@@ -110,7 +116,7 @@ class OCF(MachineState):
             action(self)
         raise StopIteration
 
-def OD(compound=None, action=None, key="value"):
+def OD(compound=None, action=None, key="value", signed=False):
     class _OD(MachineState):
         """This state fetches an data byte from memory and advances the PC in 3 t-cycles.
         Initialisation Parameters:
@@ -118,6 +124,7 @@ def OD(compound=None, action=None, key="value"):
         the old value of 'value' with the new one.
         - Optionally: 'action' a method which takes a two parameters, the state and a single integer. 
         It will be called with the final value of 'value' as the last operation in the state. 
+        - Optionally: 'signed', set to True if the input should be interpreted as 2's complement
         Args In:
         - Optionally: 'value' a single integer cascaded from a previous state
         Args Out:
@@ -133,6 +140,7 @@ def OD(compound=None, action=None, key="value"):
             self.key      = key
             self.compound = compound
             self.action   = action
+            self.signed   = signed
             super(_OD, self).__init__()
 
         def fetchlocked(self):
@@ -142,6 +150,8 @@ def OD(compound=None, action=None, key="value"):
             PC = self.cpu.reg.PC
             yield
             D = self.cpu.membus.read(PC)
+            if signed and D >= 0x80:
+                D = D - 0x100
             yield
             self.cpu.reg.PC = PC + 1
             if self.key in self.kwargs and self.compound is not None:
@@ -232,7 +242,7 @@ def MW(address=None, indirect=None, value=None, source=None):
             self.value    = value
             self.action   = action
             self.source   = source
-            super(_MR, self).__init__()
+            super(_MW, self).__init__()
 
         def fetchlocked(self):
             return True
@@ -262,6 +272,50 @@ def MW(address=None, indirect=None, value=None, source=None):
             raise StopIteration
         
     return _MW
+
+def IO(ticks, locked, transform=None, action=None, key="value"):
+    class _IO(MachineState):
+        """This state does nothing but take in and pass on args, apply transform to them and perform action
+        Initialisation Parameters:
+        - Mandatory : 'ticks', the time taken
+        - Mandatory : 'locked', true if other states can't access memory whilst this is active
+        - Optionally: 'transform' a method which will be called with this state and a cascaded in 'value' or a dictionary mapping args to methods
+        - Optionally: 'action' a side effect called last thing in the state
+        Args In:
+        - Optionally: Any
+        Args Out:
+        - Anything passed in will be passed out
+        Side Effects:
+        - 'action' is called
+        Returned Values:
+        - None
+        Time Taken:
+        - variable"""
+
+        def __init__(self):
+            self.ticks  = ticks
+            self.locked = locked
+            self.transform = transform
+            self.action   = action
+            self.key      = key
+            super(_IO, self).__init__()
+
+        def fetchlocked(self):
+            return self.locked
+
+        def run(self):
+            for key in self.kwargs:
+                if callable(self.transform) and key == self.key:
+                    self.kwargs[key] = self.transform(self, self.kwargs[key])
+                elif isinstance(self.transform, dict) and key in self.transform:
+                    self.kwargs[key] = self.transform[key](self, self.kwargs[key])
+            for n in range(0,self.ticks - 1):
+                yield
+            if callable(self.action):
+                self.action(self)
+            raise StopIteration
+        
+    return _IO
 
 def high_after_low(x,y):
     return ((x << 8) | y)
@@ -353,10 +407,102 @@ INSTRUCTION_STATES = {
     0xFD : (0, [MB], []),                                                                             # Byte one of multibyte OPCODE
 
     # Multibyte opcodes
+    (0xDD, 0x36) : (0, [],                [ OD(key='address', signed=true),
+                                                OD(key='value'),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW() ]),                                              # LD (IX+d),n
+    (0xDD, 0x46) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("B")) ]),                               # LD B,(IX+d)
+    (0xDD, 0x4E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("C")) ]),                               # LD C,(IX+d)
+    (0xDD, 0x56) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("D")) ]),                               # LD D,(IX+d)
+    (0xDD, 0x5E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("E")) ]),                               # LD E,(IX+d)
+    (0xDD, 0x66) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("H")) ]),                               # LD H,(IX+d)
+    (0xDD, 0x6E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("L")) ]),                               # LD L,(IX+d)
+    (0xDD, 0x70) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="B") ]),                                    # LD (IX+d),B
+    (0xDD, 0x71) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="C") ]),                                    # LD (IX+d),C
+    (0xDD, 0x72) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="D") ]),                                    # LD (IX+d),D
+    (0xDD, 0x73) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="E") ]),                                    # LD (IX+d),E
+    (0xDD, 0x74) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="H") ]),                                    # LD (IX+d),H
+    (0xDD, 0x75) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="L") ]),                                    # LD (IX+d),L
+    (0xDD, 0x77) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MW(source="A") ]),                                    # LD (IX+d),A
+    (0xDD, 0x7E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IX') }),
+                                                MR(action=LDr("A")) ]),                               # LD A,(IX+d)
     (0xED, 0x47) : (0, [LDrs('I', 'A'),], []),                                                        # LD I,A
     (0xED, 0x4F) : (0, [LDrs('I', 'R'),], []),                                                        # LD R,A
     (0xED, 0x57) : (0, [LDrs('A', 'I'),], []),                                                        # LD A,I
     (0xED, 0x5F) : (0, [LDrs('A', 'R'),], []),                                                        # LD A,R
+    (0xFD, 0x36) : (0, [],                [ OD(key='address', signed=true),
+                                                OD(key='value'),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW() ]),                                              # LD (IY+d),n
+    (0xFD, 0x46) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("B")) ]),                               # LD B,(IY+d)
+    (0xFD, 0x4E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("C")) ]),                               # LD C,(IY+d)
+    (0xFD, 0x56) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("D")) ]),                               # LD D,(IY+d)
+    (0xFD, 0x5E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("E")) ]),                               # LD E,(IY+d)
+    (0xFD, 0x66) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("H")) ]),                               # LD H,(IY+d)
+    (0xFD, 0x6E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("L")) ]),                               # LD L,(IY+d)
+    (0xFD, 0x70) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="B") ]),                                    # LD (IY+d),B
+    (0xFD, 0x71) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="C") ]),                                    # LD (IY+d),C
+    (0xFD, 0x72) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="D") ]),                                    # LD (IY+d),D
+    (0xFD, 0x73) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="E") ]),                                    # LD (IY+d),E
+    (0xFD, 0x74) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="H") ]),                                    # LD (IY+d),H
+    (0xFD, 0x75) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="L") ]),                                    # LD (IY+d),L
+    (0xFD, 0x77) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MW(source="A") ]),                                    # LD (IY+d),A
+    (0xFD, 0x7E) : (0, [],                [ OD(key='address', signed=True),
+                                                IO(5, True, transform={ 'address' : add_register('IY') }),
+                                                MR(action=LDr("A")) ]),                               # LD A,(IY+d)
     }
 
 def decode_instruction(instruction):
