@@ -19,9 +19,10 @@ class RegisterFile(object):
         super(RegisterFile, self).__setattr__("IXL", 0x00)
         super(RegisterFile, self).__setattr__("IYH", 0x00)
         super(RegisterFile, self).__setattr__("IYL", 0x00)
+        super(RegisterFile, self).__setattr__("SPL", 0x00)
+        super(RegisterFile, self).__setattr__("SPH", 0x00)
 
         super(RegisterFile, self).__setattr__("PC", 0x0000)
-        super(RegisterFile, self).__setattr__("SP", 0x0000)
 
         super(RegisterFile, self).__setattr__("_A", 0x00)
         super(RegisterFile, self).__setattr__("_B", 0x00)
@@ -107,13 +108,15 @@ class RegisterFile(object):
             return self.IXH << 8 | self.IXL
         elif name == "IY":
             return self.IYH << 8 | self.IYL
+        elif name == "SP":
+            return self.SPH << 8 | self.SPL
         raise AttributeError
 
     def __setattr__(self, name, value):
         if name in ("AF", "BC", "DE", "HL"):
             super(RegisterFile, self).__setattr__(name[0], (value >> 8)&0xFF)
             super(RegisterFile, self).__setattr__(name[1], value&0xFF)
-        elif name in ("IX", "IY"):
+        elif name in ("IX", "IY", "SP"):
             super(RegisterFile, self).__setattr__(name + "H", (value >> 8)&0xFF)
             super(RegisterFile, self).__setattr__(name + "L", value&0xFF)
         getattr(self, name)
