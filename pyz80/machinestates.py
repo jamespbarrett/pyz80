@@ -49,6 +49,12 @@ def EX(a=None, b=None):
             setattr(state.cpu.reg, b, tmp)
     return _inner
 
+def EXX():
+    """Exchange the working registers with their shadows"""
+    def _inner(state):
+        state.cpu.reg.exx()
+    return _inner
+
 def add_register(r):
     """Load a value from the specified register and add it to the parameter"""
     def _inner(state, d):
@@ -541,6 +547,7 @@ INSTRUCTION_STATES = {
     0xC5 : (1, [],                  [ SW(source="B"), SW(source="C") ]),                              # PUSH BC
     0xD1 : (0, [],                  [ SR(), SR(action=LDr("DE")) ]),                                  # POP DE
     0xD5 : (1, [],                  [ SW(source="D"), SW(source="E") ]),                              # PUSH DE
+    0xD9 : (0, [ EXX() ],           []),                                                              # EXX
     0xE1 : (0, [],                  [ SR(), SR(action=LDr("HL")) ]),                                  # POP HL
     0xE3 : (0, [ RRr('H','H'), RRr('L','L') ],  [ SR(), SR(action=LDr("HL"), extra=1),
                                                       SW(key="H"), SW(key="L", extra=2) ]),           # EX (SP),HL

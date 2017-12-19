@@ -36,6 +36,9 @@ def expect_memory_location_equal(addr, val):
 def ex(tc, cpu, name):
     cpu.reg.ex()
 
+def exx(tc, cpu, name):
+    cpu.reg.exx()
+
 class MEM(object):
     def __call__(self, key, value):
         return write_to_memory(key, value)
@@ -354,3 +357,14 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_exx(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        (pre, instructions, t_cycles, post, name) = [
+            [ BC(0xCAFE), DE(0x1BBC), HL(0xDEAD), exx,  BC(0x1337), DE(0x8080), HL(0xF00F) ],
+            [ 0xD9 ], 4,
+            [ (BC == 0xCAFE), (DE == 0x1BBC), (HL == 0xDEAD), exx, (BC == 0x1337), (DE == 0x8080), (HL == 0xF00F) ],
+            "EXX"
+            ]
+
+        self.execute_instructions(pre, instructions, t_cycles, post, name)
