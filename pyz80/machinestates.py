@@ -242,7 +242,6 @@ def MW(address=None, indirect=None, value=None, source=None):
             self.address  = address
             self.indirect = indirect
             self.value    = value
-            self.action   = action
             self.source   = source
             super(_MW, self).__init__()
 
@@ -311,7 +310,7 @@ def SR(compound=None, action=None):
             D = self.cpu.membus.read(self.address)
             yield
 
-            if 'value' in self.kwargs and self.coumpound is not None:
+            if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
             self.kwargs['value'] = D
             self.cpu.reg.SP = self.cpu.reg.SP + 1
@@ -429,6 +428,7 @@ INSTRUCTION_STATES = {
     0x31 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('SP')) ]),         # LD SP,nn
     0x32 : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MW(source="A") ]),                                          # LD (nn),A
+    0x36 : (0, [],                  [ OD(), MW(indirect="HL") ]),                                     # LD (HL),n
     0x3A : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MR(action=LDr("A")) ]),                                     # LD A,(nn)
     0x3E : (0, [],                  [ OD(action=LDr('A')), ]),                                        # LD A,n
