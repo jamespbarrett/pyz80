@@ -28,6 +28,17 @@ def LDrs(r,s):
         setattr(state.cpu.reg, r, getattr(state.cpu.reg, s))
     return _inner
 
+def EX(a=None, b=None):
+    """Exchange the AF and AF' registers"""
+    def _inner(state):
+        if a is None or b is None:
+            state.cpu.reg.ex()
+        else:
+            tmp = getattr(state.cpu.reg, a)
+            setattr(state.cpu.reg, a, getattr(state.cpu.reg, b))
+            setattr(state.cpu.reg, b, tmp)
+    return _inner
+
 def add_register(r):
     """Load a value from the specified register and add it to the parameter"""
     def _inner(state, d):
@@ -408,6 +419,7 @@ INSTRUCTION_STATES = {
     0x01 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('BC')) ]),         # LD BC,nn
     0x02 : (0, [],                  [ MW(indirect="BC", source="A") ]),                               # LD (BC),A
     0x06 : (0, [],                  [ OD(action=LDr('B')), ]),                                        # LD B,n
+    0x08 : (0, [ EX() ],            []),                                                              # EX AF,AF'
     0x0E : (0, [],                  [ OD(action=LDr('C')), ]),                                        # LD C,n
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ]),                          # LD A,(BC)
     0x11 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('DE')) ]),         # LD DE,nn
@@ -502,6 +514,7 @@ INSTRUCTION_STATES = {
     0xD5 : (1, [],                  [ SW(source="D"), SW(source="E") ]),                              # PUSH DE
     0xE1 : (0, [],                  [ SR(), SR(compound=high_after_low, action=LDr("HL")) ]),         # POP HL
     0xE5 : (1, [],                  [ SW(source="H"), SW(source="L") ]),                              # PUSH HL
+    0xEB : (0, [ EX('DE', 'HL') ],  []),                                                              # EX DE,HL
     0xED : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
     0xDD : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
     0xF1 : (0, [],                  [ SR(), SR(compound=high_after_low, action=LDr("AF")) ]),         # POP AF

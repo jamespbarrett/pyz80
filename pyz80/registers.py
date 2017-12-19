@@ -119,8 +119,9 @@ class RegisterFile(object):
         elif name in ("IX", "IY", "SP"):
             super(RegisterFile, self).__setattr__(name + "H", (value >> 8)&0xFF)
             super(RegisterFile, self).__setattr__(name + "L", value&0xFF)
-        getattr(self, name)
-        super(RegisterFile,self).__setattr__(name, value)
+        else:
+            getattr(self, name)
+            super(RegisterFile,self).__setattr__(name, value)
 
     def registermap(self):
         """Return a string which is a diagram illustrating the current state of the registers."""

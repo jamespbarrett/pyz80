@@ -33,6 +33,9 @@ def expect_memory_location_equal(addr, val):
         tc.assertEqual(rval, val, msg="""[ {} ] Expected location 0x{:X} to contain value 0x{:X}, but actually contains 0x{:X}""".format(name, addr, val, rval))
     return _inner
 
+def ex(tc, cpu, name):
+    cpu.reg.ex()
+
 class MEM(object):
     def __call__(self, key, value):
         return write_to_memory(key, value)
@@ -337,4 +340,14 @@ class TestInstructionSet(unittest.TestCase):
             ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
-            self.execute_instructions(pre, instructions, t_cycles, post, name)        
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ex(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ AF(0xA), ex, AF(0xB) ], [ 0x08 ], 4, [ (PC == 0x01), (AF == 0xA), ex, (AF == 0xB) ], "EX AF,AF'" ],
+            [ [ DE(0xA), HL(0xB)],      [ 0xEB ], 4, [ (PC == 0x01), (DE == 0xB), (HL == 0xA) ],     "EX DE,HL" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
