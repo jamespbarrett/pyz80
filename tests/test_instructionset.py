@@ -21,7 +21,10 @@ def write_to_memory(addr, val):
 def expect_register_equal(reg, val):
     def _inner(tc, cpu, name):
         rval = getattr(cpu.reg, reg)
-        tc.assertEqual(rval, val, msg="""[ {} ] Expected register {} to contain value 0x{:X}, but actually contains 0x{:X}""".format(name, reg, val, rval))
+        tc.assertEqual(rval, val, msg="""[ {} ] Expected register {} to contain value 0x{:X}, but actually contains 0x{:X}
+Full register contents:
+{}
+""".format(name, reg, val, rval, cpu.reg.registermap()))
     return _inner
 
 def expect_memory_location_equal(addr, val):
@@ -61,6 +64,8 @@ D = REG('D')
 E = REG('E')
 H = REG('H')
 L = REG('L')
+I = REG('I')
+R = REG('R')
 
 SP = REG('SP')
 PC = REG('PC')
@@ -135,17 +140,33 @@ class TestInstructionSet(unittest.TestCase):
     def test_LD(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
+            [ [ I(0xB) ], [ 0xED, 0x57 ], 4, [ (PC == 0x02), (A == 0xB) ], "LD A,I" ],
+            [ [ R(0xB) ], [ 0xED, 0x5F ], 4, [ (PC == 0x02), (A == 0xB) ], "LD A,R" ],
+            [ [ A(0xB) ], [ 0xED, 0x47 ], 4, [ (PC == 0x02), (I == 0xB) ], "LD I,A" ],
+            [ [ A(0xB) ], [ 0xED, 0x4F ], 4, [ (PC == 0x02), (R == 0xB) ], "LD R,A" ],
+
             [ [], [ 0x01, 0xBC, 0x1B ], 10, [ (PC == 0x03), (BC == 0x1BBC), ], "LD BC,1BBCH" ],
             [ [], [ 0x11, 0xBC, 0x1B ], 10, [ (PC == 0x03), (DE == 0x1BBC), ], "LD DE,1BBCH" ],
             [ [], [ 0x21, 0xBC, 0x1B ], 10, [ (PC == 0x03), (HL == 0x1BBC), ], "LD HL,1BBCH" ],
             [ [], [ 0x31, 0xBC, 0x1B ], 10, [ (PC == 0x03), (SP == 0x1BBC), ], "LD SP,1BBCH" ],
+            [ [], [ 0xDD, 0x21, 0xBC, 0x1B ], 10, [ (PC == 0x04), (IX == 0x1BBC), ], "LD IX,1BBCH" ],
+            [ [], [ 0xFD, 0x21, 0xBC, 0x1B ], 10, [ (PC == 0x04), (IY == 0x1BBC), ], "LD IY,1BBCH" ],
+
+            [ [ M(0x1BBC,0xFE), M(0x1BBD,0xCA) ], [ 0x2A, 0xBC, 0x1B ],       16, [ (PC == 0x03), (HL == 0xCAFE) ], "LD HL,(1BBCH)" ],
+            [ [ M(0x1BBC,0xFE), M(0x1BBD,0xCA) ], [ 0xED, 0x4B, 0xBC, 0x1B ], 16, [ (PC == 0x04), (BC == 0xCAFE) ], "LD BC,(1BBCH)" ],
+            [ [ M(0x1BBC,0xFE), M(0x1BBD,0xCA) ], [ 0xED, 0x5B, 0xBC, 0x1B ], 16, [ (PC == 0x04), (DE == 0xCAFE) ], "LD DE,(1BBCH)" ],
+            [ [ M(0x1BBC,0xFE), M(0x1BBD,0xCA) ], [ 0xED, 0x7B, 0xBC, 0x1B ], 16, [ (PC == 0x04), (SP == 0xCAFE) ], "LD SP,(1BBCH)" ],
+            [ [ M(0x1BBC,0xFE), M(0x1BBD,0xCA) ], [ 0xDD, 0x2A, 0xBC, 0x1B ], 16, [ (PC == 0x04), (IX == 0xCAFE) ], "LD IX,(1BBCH)" ],
+            [ [ M(0x1BBC,0xFE), M(0x1BBD,0xCA) ], [ 0xFD, 0x2A, 0xBC, 0x1B ], 16, [ (PC == 0x04), (IY == 0xCAFE) ], "LD IY,(1BBCH)" ],
+
+            [ [ BC(0xCAFE) ], [ 0xED, 0x43, 0xBC, 0x1B ], 16, [ (PC == 0x04), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),BC" ],
+            [ [ DE(0xCAFE) ], [ 0xED, 0x53, 0xBC, 0x1B ], 16, [ (PC == 0x04), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),DE" ],
+            [ [ HL(0xCAFE) ], [ 0x22, 0xBC, 0x1B ],       16, [ (PC == 0x03), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),HL" ],
+            [ [ SP(0xCAFE) ], [ 0xED, 0x73, 0xBC, 0x1B ], 16, [ (PC == 0x04), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),SP" ],
+            [ [ IX(0xCAFE) ], [ 0xDD, 0x22, 0xBC, 0x1B ], 16, [ (PC == 0x04), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),IX" ],
+            [ [ IY(0xCAFE) ], [ 0xFD, 0x22, 0xBC, 0x1B ], 16, [ (PC == 0x04), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),IY" ],
 
             [ [ HL(0x1BBC) ], [ 0xF9 ], 4, [ (PC == 0x01), (SP == 0x1BBC), ], "LD SP,HL" ],
-
-            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xC1, ], 10, [ (PC == 0x01), (SP == 0x1BBE), (BC == 0xCAFE) ], "POP BC" ],
-            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xD1, ], 10, [ (PC == 0x01), (SP == 0x1BBE), (DE == 0xCAFE) ], "POP DE" ],
-            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xE1, ], 10, [ (PC == 0x01), (SP == 0x1BBE), (HL == 0xCAFE) ], "POP HL" ],
-            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xF1, ], 10, [ (PC == 0x01), (SP == 0x1BBE), (AF == 0xCAFE) ], "POP AF" ],
 
             [ [ BC(0x1BBC), A(0xB) ], [ 0x02, ], 7, [ (PC == 0x01), (M[0x1BBC] == 0xB) ], "LD (BC),A" ],
             [ [ DE(0x1BBC), A(0xB) ], [ 0x12, ], 7, [ (PC == 0x01), (M[0x1BBC] == 0xB) ], "LD (DE),A" ],
@@ -159,6 +180,7 @@ class TestInstructionSet(unittest.TestCase):
             [ [], [ 0x1E, 0x0B, ], 7, [ (PC == 0x02), (E == 0xB) ], "LD E,0BH" ],
             [ [], [ 0x26, 0x0B, ], 7, [ (PC == 0x02), (H == 0xB) ], "LD H,0BH" ],
             [ [], [ 0x2E, 0x0B, ], 7, [ (PC == 0x02), (L == 0xB) ], "LD L,0BH" ],
+            [ [], [ 0x3E, 0x0B, ], 7, [ (PC == 0x02), (A == 0xB) ], "LD A,0BH" ],
 
             [ [ A(0xB), ],        [ 0x32, 0xBC, 0x1B ], 13, [ (PC == 0x03), (M[0x1BBC] == 0x0B) ], "LD (1BBCH),A" ],
             [ [ HL(0x1BBC), ],    [ 0x36, 0x0B ],       10, [ (PC == 0x02), (M[0x1BBC] == 0x0B) ], "LD (HL),0BH"  ],
@@ -215,6 +237,9 @@ class TestInstructionSet(unittest.TestCase):
             [ [ HL(0x1BBC), M(0x1BBC, 0xB) ], [ 0x6E, ], 7, [ (PC == 0x01), (L == 0xB), ], "LD L,(HL)" ],
             [ [ A(0xB) ], [ 0x6F, ], 4, [ (PC == 0x01), (L == 0xB), ], "LD L,A" ],
 
+            [ [ IX(0xCAFE) ], [ 0xDD, 0xF9 ], 4, [ (PC == 0x02), (SP == 0xCAFE) ], "LD SP,IX"],
+            [ [ IY(0xCAFE) ], [ 0xFD, 0xF9 ], 4, [ (PC == 0x02), (SP == 0xCAFE) ], "LD SP,IY"],
+
             [ [ HL(0x1BBC), B(0xB) ], [ 0x70, ], 7, [ (PC == 0x01), M[0x1BBC] == 0xB  ], "LD (HL),B" ],
             [ [ HL(0x1BBC), C(0xB) ], [ 0x71, ], 7, [ (PC == 0x01), M[0x1BBC] == 0xB  ], "LD (HL),C" ],
             [ [ HL(0x1BBC), D(0xB) ], [ 0x72, ], 7, [ (PC == 0x01), M[0x1BBC] == 0xB  ], "LD (HL),D" ],
@@ -266,7 +291,50 @@ class TestInstructionSet(unittest.TestCase):
             [ [ H(0x0B), IY(0x1BB0) ], [ 0xFD, 0x74, 0x0C ], 15, [ (PC == 0x3), (M[0x1BBC] == 0x0B) ], "LD (IY+0CH),H"],
             [ [ L(0x0B), IY(0x1BB0) ], [ 0xFD, 0x75, 0x0C ], 15, [ (PC == 0x3), (M[0x1BBC] == 0x0B) ], "LD (IY+0CH),L"],
             [ [ A(0x0B), IY(0x1BB0) ], [ 0xFD, 0x77, 0x0C ], 15, [ (PC == 0x3), (M[0x1BBC] == 0x0B) ], "LD (IY+0CH),A"],
+
+            [ [ BC(0xCAFE) ], [ 0xED, 0x43, 0xBC, 0x1B ], 18, [ (PC == 0x4), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),BC" ],
+            [ [ DE(0xCAFE) ], [ 0xED, 0x53, 0xBC, 0x1B ], 18, [ (PC == 0x4), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),DE" ],
+            [ [ SP(0xCAFE) ], [ 0xED, 0x73, 0xBC, 0x1B ], 18, [ (PC == 0x4), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),SP" ],
+            [ [ IX(0xCAFE) ], [ 0xDD, 0x22, 0xBC, 0x1B ], 18, [ (PC == 0x4), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),IX" ],
+            [ [ IY(0xCAFE) ], [ 0xFD, 0x22, 0xBC, 0x1B ], 18, [ (PC == 0x4), (M[0x1BBC] == 0xFE), (M[0x1BBD] == 0xCA) ], "LD (1BBCH),IY" ],
             ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_pop(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xC1, ],       10, [ (PC == 0x01), (SP == 0x1BBE), (BC == 0xCAFE) ], "POP BC" ],
+            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xD1, ],       10, [ (PC == 0x01), (SP == 0x1BBE), (DE == 0xCAFE) ], "POP DE" ],
+            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xE1, ],       10, [ (PC == 0x01), (SP == 0x1BBE), (HL == 0xCAFE) ], "POP HL" ],
+            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xF1, ],       10, [ (PC == 0x01), (SP == 0x1BBE), (AF == 0xCAFE) ], "POP AF" ],
+            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xDD, 0xE1, ], 10, [ (PC == 0x02), (SP == 0x1BBE), (IX == 0xCAFE) ], "POP IX" ],
+            [ [ M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), SP(0x1BBC) ], [ 0xFD, 0xE1, ], 10, [ (PC == 0x02), (SP == 0x1BBE), (IY == 0xCAFE) ], "POP IY" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_push(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ AF(0xCAFE), SP(0x1BBC) ], [ 0xF5, ],       10, [ (PC == 0x01), (SP == 0x1BBA), (M[0x1BBA] == 0xFE), (M[0x1BBB] == 0xCA) ], "PUSH AF" ],
+            [ [ BC(0xCAFE), SP(0x1BBC) ], [ 0xC5, ],       10, [ (PC == 0x01), (SP == 0x1BBA), (M[0x1BBA] == 0xFE), (M[0x1BBB] == 0xCA) ], "PUSH BC" ],
+            [ [ DE(0xCAFE), SP(0x1BBC) ], [ 0xD5, ],       10, [ (PC == 0x01), (SP == 0x1BBA), (M[0x1BBA] == 0xFE), (M[0x1BBB] == 0xCA) ], "PUSH DE" ],
+            [ [ HL(0xCAFE), SP(0x1BBC) ], [ 0xE5, ],       10, [ (PC == 0x01), (SP == 0x1BBA), (M[0x1BBA] == 0xFE), (M[0x1BBB] == 0xCA) ], "PUSH HL" ],
+            [ [ IX(0xCAFE), SP(0x1BBC) ], [ 0xDD, 0xE5, ], 10, [ (PC == 0x02), (SP == 0x1BBA), (M[0x1BBA] == 0xFE), (M[0x1BBB] == 0xCA) ], "PUSH IX" ],
+            [ [ IY(0xCAFE), SP(0x1BBC) ], [ 0xFD, 0xE5, ], 10, [ (PC == 0x02), (SP == 0x1BBA), (M[0x1BBA] == 0xFE), (M[0x1BBB] == 0xCA) ], "PUSH IY" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_jp(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [], [ 0xC3, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "PUSH AF" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)        

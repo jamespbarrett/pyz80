@@ -208,7 +208,7 @@ def MR(address=None, indirect=None, compound=None, action=None):
             D = self.cpu.membus.read(self.address)
             yield
 
-            if 'value' in self.kwargs and self.coumpound is not None:
+            if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
             self.kwargs['value'] = D
             self.kwargs['address'] = self.address + 1
@@ -575,7 +575,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x4B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('C')), MR(action=LDr('B')) ]),              # LD BC,(nn)
-    (0xED, 0x4F) : (0, [LDrs('I', 'R'),], []),                                                        # LD R,A
+    (0xED, 0x4F) : (0, [LDrs('R', 'A'),], []),                                                        # LD R,A
     (0xED, 0x53) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="E"),
@@ -597,7 +597,7 @@ INSTRUCTION_STATES = {
                                             OD(key="address", compound=high_after_low),
                                             MW(source="IYL"),
                                             MW(source="IYH") ]),                                      # LD (nn),IY
-    (0xDD, 0x2A) : (0, [],                [ OD(key="address"),
+    (0xFD, 0x2A) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('IYL')), MR(action=LDr('IYH')) ]),          # LD IY,(nn)
     (0xFD, 0x36) : (0, [],                [ OD(key='address', signed=True),
