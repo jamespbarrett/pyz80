@@ -3,7 +3,11 @@ __all__ = [ "MachineState", "OCF", "UnrecognisedInstructionError" ]
 class UnrecognisedInstructionError(Exception):
     def __init__(self, inst):
         self.inst = inst
-        super(UnrecognisedInstructionError, self).__init__("Unrecognised Instruction 0x{:X}".format(inst))
+        if isinstance(inst, tuple):
+            inst = "(0x{:X}, 0x{:X})".format(inst[0], inst[1])
+        else:
+            inst = "0x{:X}".format(inst)
+        super(UnrecognisedInstructionError, self).__init__("Unrecognised Instruction {}".format(inst))
 
 
 # Actions which can be triggered at end of machine states
@@ -26,6 +30,12 @@ def LDrs(r,s):
     """Load from the specified register into the specified register"""
     def _inner(state):
         setattr(state.cpu.reg, r, getattr(state.cpu.reg, s))
+    return _inner
+
+def RRr(n,r):
+    """Load the value from the specified register and store as a key in the kwargs of the state"""
+    def _inner(state):
+        state.kwargs[n] = getattr(state.cpu.reg, r)
     return _inner
 
 def EX(a=None, b=None):
@@ -85,6 +95,9 @@ class MachineState(object):
                 self.pipeline[0].kwargs = self.kwargs
             return self.return_value
 
+def high_after_low(x,y):
+    return ((x << 8) | y)
+
 class OCF(MachineState):
     """This state fetches an OP Code from memory and advances the PC in 4 t-cycles.
     Args In:
@@ -127,7 +140,7 @@ class OCF(MachineState):
             action(self)
         raise StopIteration
 
-def OD(compound=None, action=None, key="value", signed=False):
+def OD(compound=high_after_low, action=None, key="value", signed=False):
     class _OD(MachineState):
         """This state fetches an data byte from memory and advances the PC in 3 t-cycles.
         Initialisation Parameters:
@@ -167,13 +180,14 @@ def OD(compound=None, action=None, key="value", signed=False):
             self.cpu.reg.PC = PC + 1
             if self.key in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs[self.key])
-            self.kwargs[self.key] = D
             if self.action is not None:
                 self.action(self, D)
+            else:
+                self.kwargs[self.key] = D
             raise StopIteration
     return _OD
 
-def MR(address=None, indirect=None, compound=None, action=None):
+def MR(address=None, indirect=None, compound=high_after_low, action=None):
     class _MR(MachineState):
         """This state fetches a data byte from memory at a specified address (possibly using register indirect or indexed addressing):
         Initialisation Parameters:
@@ -221,10 +235,11 @@ def MR(address=None, indirect=None, compound=None, action=None):
 
             if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
-            self.kwargs['value'] = D
             self.kwargs['address'] = self.address + 1
             if self.action is not None:
                 self.action(self, D)
+            else:
+                self.kwargs['value'] = D
             raise StopIteration
 
     return _MR
@@ -286,7 +301,7 @@ def MW(address=None, indirect=None, value=None, source=None):
         
     return _MW
 
-def SR(compound=None, action=None):
+def SR(compound=high_after_low, action=None, extra=0):
     class _SR(MachineState):
         """This state fetches a data byte from memory at the top of the stack and increments the stack pointer:
         Initialisation Parameters:
@@ -294,6 +309,7 @@ def SR(compound=None, action=None):
         the old value of 'value' with the new one.
         - Optionally: 'action' a method which takes a two parameters, the state and a single integer. 
         It will be called with the final value of 'value' as the last operation in the state. 
+        - Optionally: 'extra' a number of extra t-cycles to wait for
         Args In:
         - Optionally: 'value' a single integer cascaded from a previous state
         Args Out:
@@ -309,6 +325,7 @@ def SR(compound=None, action=None):
         def __init__(self):
             self.compound = compound
             self.action   = action
+            self.extra    = extra
             super(_SR, self).__init__()
 
         def fetchlocked(self):
@@ -321,6 +338,9 @@ def SR(compound=None, action=None):
             D = self.cpu.membus.read(self.address)
             yield
 
+            for n in range(0,self.extra):
+                yield
+
             if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
             self.kwargs['value'] = D
@@ -331,13 +351,15 @@ def SR(compound=None, action=None):
 
     return _SR
 
-def SW(source):
+def SW(source=None, key='value', extra=0):
     class _SW(MachineState):
         """This state decrements the stack pointer and writes a data byte to memory at the top of the stack:
         Initialisation Parameters:
-        - Mandatory: 'source' the register from which to take the value
+        - Optionally: 'source' the register from which to take the value
+        - Optionally: 'key' a key to use instead of 'value' to access the data to be written
+        - Optionally: 'extra' a number of extra t-cycles to wait for
         Args In:
-        - None
+        - Possibly a value if none is specified by source
         Args Out:
         - None
         Side Effects:
@@ -349,6 +371,8 @@ def SW(source):
 
         def __init__(self):
             self.source = source
+            self.key    = key
+            self.extra  = extra
             super(_SW, self).__init__()
 
         def fetchlocked(self):
@@ -358,10 +382,18 @@ def SW(source):
             self.cpu.reg.SP = self.cpu.reg.SP - 1
             yield
 
+            for n in range(0,self.extra):
+                yield
+
             self.address = self.cpu.reg.SP
             yield
 
-            self.cpu.membus.write(self.address, getattr(self.cpu.reg, self.source))
+            if self.source is not None:
+                D = getattr(self.cpu.reg, self.source)
+            else:
+                D = self.kwargs[self.key]
+
+            self.cpu.membus.write(self.address, D)
             raise StopIteration
 
     return _SW
@@ -410,34 +442,31 @@ def IO(ticks, locked, transform=None, action=None, key="value"):
         
     return _IO
 
-def high_after_low(x,y):
-    return ((x << 8) | y)
-
 INSTRUCTION_STATES = {
     # Single bytes opcodes
     0x00 : (0, [],                  [] ),                                                             # NOP
-    0x01 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('BC')) ]),         # LD BC,nn
+    0x01 : (0, [],                  [ OD(), OD(action=LDr('BC')) ]),                                  # LD BC,nn
     0x02 : (0, [],                  [ MW(indirect="BC", source="A") ]),                               # LD (BC),A
     0x06 : (0, [],                  [ OD(action=LDr('B')), ]),                                        # LD B,n
     0x08 : (0, [ EX() ],            []),                                                              # EX AF,AF'
     0x0E : (0, [],                  [ OD(action=LDr('C')), ]),                                        # LD C,n
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ]),                          # LD A,(BC)
-    0x11 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('DE')) ]),         # LD DE,nn
+    0x11 : (0, [],                  [ OD(), OD(action=LDr('DE')) ]),                                  # LD DE,nn
     0x12 : (0, [],                  [ MW(indirect="DE", source="A") ]),                               # LD (DE),A
     0x16 : (0, [],                  [ OD(action=LDr('D')), ]),                                        # LD D,n
     0x1A : (0, [],                  [ MR(indirect="DE", action=LDr("A")) ]),                          # LD A,(DE)
     0x1E : (0, [],                  [ OD(action=LDr('E')), ]),                                        # LD E,n
-    0x21 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('HL')) ]),         # LD HL,nn
+    0x21 : (0, [],                  [ OD(), OD(action=LDr('HL')) ]),                                  # LD HL,nn
     0x22 : (0, [],                  [ OD(key="address"),
                                         OD(key="address",
                                         compound=high_after_low),
                                         MW(source="L"), MW(source="H") ]),                            # LD (nn),HL
     0x26 : (0, [],                  [ OD(action=LDr('H')), ]),                                        # LD H,n
     0x2A : (0, [],                  [ OD(key="address"),
-                                        OD(key="address", compound=high_after_low),
-                                        MR(action=LDr('L')), MR(action=LDr('H')) ]),                  # LD HL,(nn)
+                                      OD(key="address", compound=high_after_low),
+                                      MR(action=LDr('L')), MR(action=LDr('H')) ]),                    # LD HL,(nn)
     0x2E : (0, [],                  [ OD(action=LDr('L')), ]),                                        # LD L,n
-    0x31 : (0, [],                  [ OD(), OD(compound=high_after_low, action=LDr('SP')) ]),         # LD SP,nn
+    0x31 : (0, [],                  [ OD(), OD(action=LDr('SP')) ]),                                  # LD SP,nn
     0x32 : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MW(source="A") ]),                                          # LD (nn),A
     0x36 : (0, [],                  [ OD(), MW(indirect="HL") ]),                                     # LD (HL),n
@@ -507,23 +536,25 @@ INSTRUCTION_STATES = {
     0x7D : (0, [ LDrs('A', 'L'), ], [] ),                                                             # LD A,L
     0x7E : (0, [],                  [ MR(indirect="HL", action=LDr("A")) ]),                          # LD A, (HL)
     0x7F : (0, [ LDrs('A', 'A'), ], [] ),                                                             # LD A,A
-    0xC1 : (0, [],                  [ SR(), SR(compound=high_after_low, action=LDr("BC")) ]),         # POP BC
-    0xC3 : (0, [],                  [ OD(), OD(compound=high_after_low, action=JP) ]),                # JP nn
+    0xC1 : (0, [],                  [ SR(), SR(action=LDr("BC")) ]),                                  # POP BC
+    0xC3 : (0, [],                  [ OD(), OD(action=JP) ]),                                         # JP nn
     0xC5 : (1, [],                  [ SW(source="B"), SW(source="C") ]),                              # PUSH BC
-    0xD1 : (0, [],                  [ SR(), SR(compound=high_after_low, action=LDr("DE")) ]),         # POP DE
+    0xD1 : (0, [],                  [ SR(), SR(action=LDr("DE")) ]),                                  # POP DE
     0xD5 : (1, [],                  [ SW(source="D"), SW(source="E") ]),                              # PUSH DE
-    0xE1 : (0, [],                  [ SR(), SR(compound=high_after_low, action=LDr("HL")) ]),         # POP HL
+    0xE1 : (0, [],                  [ SR(), SR(action=LDr("HL")) ]),                                  # POP HL
+    0xE3 : (0, [ RRr('H','H'), RRr('L','L') ],  [ SR(), SR(action=LDr("HL"), extra=1),
+                                                      SW(key="H"), SW(key="L", extra=2) ]),           # EX (SP),HL
     0xE5 : (1, [],                  [ SW(source="H"), SW(source="L") ]),                              # PUSH HL
     0xEB : (0, [ EX('DE', 'HL') ],  []),                                                              # EX DE,HL
     0xED : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
     0xDD : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
-    0xF1 : (0, [],                  [ SR(), SR(compound=high_after_low, action=LDr("AF")) ]),         # POP AF
+    0xF1 : (0, [],                  [ SR(), SR(action=LDr("AF")) ]),                                  # POP AF
     0xF5 : (1, [],                  [ SW(source="A"), SW(source="F") ]),                              # PUSH AF
     0xF9 : (0, [ LDrs('SP', 'HL') ], []),                                                             # LD SP,HL 
     0xFD : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
 
     # Multibyte opcodes
-    (0xDD, 0x21) : (0, [],                [ OD(), OD(compound=high_after_low, action=LDr('IX')) ]),   # LD IX,nn
+    (0xDD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IX')) ]),                            # LD IX,nn
     (0xDD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="IXL"),
@@ -577,7 +608,9 @@ INSTRUCTION_STATES = {
     (0xDD, 0x7E) : (0, [],                [ OD(key='address', signed=True),
                                                 IO(5, True, transform={ 'address' : add_register('IX') }),
                                                 MR(action=LDr("A")) ]),                               # LD A,(IX+d)
-    (0xDD, 0xE1) : (0, [],                [ SR(), SR(compound=high_after_low, action=LDr("IX")) ]),   # POP IX
+    (0xDD, 0xE1) : (0, [],                [ SR(), SR(action=LDr("IX")) ]),                            # POP IX
+    (0xDD, 0xE3) : (0, [ RRr('H','IXH'), RRr('L','IXL') ],
+                        [ SR(), SR(action=LDr("IX"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IX
     (0xDD, 0xE5) : (1, [],                [ SW(source="IXH"), SW(source="IXL") ]),                    # PUSH IX
     (0xDD, 0xF9) : (0, [LDrs('SP','IX'),],[]),                                                        # LD SP,IX
     (0xED, 0x43) : (0, [],                [ OD(key="address"),
@@ -605,7 +638,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x7B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('SPL')), MR(action=LDr('SPH')) ]),          # LD SP,(nn)
-    (0xFD, 0x21) : (0, [],                [ OD(), OD(compound=high_after_low, action=LDr('IY')) ]),   # LD IY,nn
+    (0xFD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IY')) ]),   # LD IY,nn
     (0xFD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="IYL"),
@@ -659,7 +692,9 @@ INSTRUCTION_STATES = {
     (0xFD, 0x7E) : (0, [],                [ OD(key='address', signed=True),
                                                 IO(5, True, transform={ 'address' : add_register('IY') }),
                                                 MR(action=LDr("A")) ]),                               # LD A,(IY+d)
-    (0xFD, 0xE1) : (0, [],                [ SR(), SR(compound=high_after_low, action=LDr("IY")) ]),   # POP IY
+    (0xFD, 0xE1) : (0, [],                [ SR(), SR(action=LDr("IY")) ]),                            # POP IY
+    (0xFD, 0xE3) : (0, [ RRr('H','IYH'), RRr('L','IYL') ],
+                        [ SR(), SR(action=LDr("IY"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IY
     (0xFD, 0xE5) : (1, [],                [ SW(source="IYH"), SW(source="IYL") ]),                    # PUSH IY
     (0xFD, 0xF9) : (0, [LDrs('SP','IY'),],[]),                                                        # LD SP,IY
     }
