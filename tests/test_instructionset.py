@@ -52,6 +52,27 @@ class MEM(object):
                 return expect_memory_location_equal(self.key, other)
         return __inner(key)
 
+class FLAG(object):
+    def __call__(self, key, value):
+        def _inner(tc, cpu, name):
+            if value == 0:
+                cpu.reg.resetflag(key)
+            else:
+                cpu.reg.setflag(key)
+        return _inner
+
+    def __getitem__(self, key):
+        class _inner(object):
+            def __init__(self, key):
+                self.key = key
+
+            def __eq__(self, other):
+                def __inner(tc, cpu, name):
+                    rval = cpu.reg.getflag(self.key)
+                    tc.assertEqual(rval, other, msg="""[ {} ] Expected flag {} to be {}, was actually {}""".format(name, self.key, other, rval))
+                return __inner
+        return _inner(key)
+
 class REG(object):
     def __init__(self, r):
         self.r = r
@@ -62,6 +83,7 @@ class REG(object):
     def __eq__(self, other):
         return expect_register_equal(self.r, other)
 
+F = FLAG()
 M = MEM()
 A = REG('A')
 B = REG('B')
@@ -368,3 +390,24 @@ class TestInstructionSet(unittest.TestCase):
             ]
 
         self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ldi(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xA0 ], 12, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDI" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xA0 ], 12, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDI" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ldir(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0x80 ], 17, [ (PC==0x00), (HL==0x1BBD), (DE==0x2BBD), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDIR (count non-zero)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0x80 ], 12, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDIR (count zero)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), M(0x1BBD, 0xC), F("V",1) ], [ 0xED, 0x80 ], 29, [ (PC==0x02), (HL==0x1BBE), (DE==0x2BBE), (BC==0x0), (M[0x2BBC]==0xB), (M[0x2BBD]==0xC), (F["V"]==0) ], "LDIR (loop)" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)

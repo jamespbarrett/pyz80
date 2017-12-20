@@ -16,31 +16,31 @@ def MB():
     """This can be set as the action for an OPCODE that's actually the first byte of a multibyte sequence."""
     raise Exception("Tried to execute the special MB action used to signal multibyte OPCODES")
 
-def JP(state, target):
+def JP(state, target, *args):
     """Jump to the second parameter (an address)"""
     state.cpu.reg.PC = target
 
 def LDr(reg):
     """Load into the specified register"""
-    def _inner(state, value):
+    def _inner(state, value, *args):
         setattr(state.cpu.reg, reg, value)
     return _inner
 
 def LDrs(r,s):
     """Load from the specified register into the specified register"""
-    def _inner(state):
+    def _inner(state, *args):
         setattr(state.cpu.reg, r, getattr(state.cpu.reg, s))
     return _inner
 
 def RRr(n,r):
     """Load the value from the specified register and store as a key in the kwargs of the state"""
-    def _inner(state):
+    def _inner(state, *args):
         state.kwargs[n] = getattr(state.cpu.reg, r)
     return _inner
 
 def EX(a=None, b=None):
     """Exchange the AF and AF' registers"""
-    def _inner(state):
+    def _inner(state, *args):
         if a is None or b is None:
             state.cpu.reg.ex()
         else:
@@ -51,15 +51,61 @@ def EX(a=None, b=None):
 
 def EXX():
     """Exchange the working registers with their shadows"""
-    def _inner(state):
+    def _inner(state, *args):
         state.cpu.reg.exx()
     return _inner
 
 def add_register(r):
     """Load a value from the specified register and add it to the parameter"""
-    def _inner(state, d):
+    def _inner(state, d, *args):
         return getattr(state.cpu.reg, r) + d
     return _inner
+
+def do_each(*actions):
+    """Perform a series of actions."""
+    def _inner(state, *args):
+        for action in actions:
+            action(state, *args)
+    return _inner
+
+def inc(reg):
+    """Increment a register"""
+    def _inner(state, *args):
+        if len(reg) % 2 == 0:
+            setattr(state.cpu.reg, reg, (getattr(state.cpu.reg, reg) + 1)&0xFFFF)
+        else:
+            setattr(state.cpu.reg, reg, (getattr(state.cpu.reg, reg) + 1)&0xFF)
+    return _inner
+
+def dec(reg):
+    """Decrement a register"""
+    def _inner(state, *args):
+        if len(reg)%2 == 0:
+            setattr(state.cpu.reg, reg, (0xFFFF + getattr(state.cpu.reg, reg))&0xFFFF)
+        else:
+            setattr(state.cpu.reg, reg, (0xFF + getattr(state.cpu.reg, reg))&0xFF)
+    return _inner
+
+def on_zero(reg, action):
+    """Only take action if register is zero"""
+    def _inner(state, *args):
+        if getattr(state.cpu.reg, reg) == 0:
+            action(state, *args)
+    return _inner
+
+def clear_flag(flag):
+    """Clear a flag"""
+    def _inner(state, *args):
+        state.cpu.reg.resetflag(flag)
+    return _inner
+
+def early_abort():
+    """Abort instruction"""
+    def _inner(state, *args):
+        while len(state.pipeline) > 1:
+            state.pipeline.pop()
+    return _inner
+
 
 # Machine States
 
@@ -250,7 +296,7 @@ def MR(address=None, indirect=None, compound=high_after_low, action=None):
 
     return _MR
 
-def MW(address=None, indirect=None, value=None, source=None):
+def MW(address=None, indirect=None, value=None, source=None, action=None, extra=0):
     class _MW(MachineState):
         """This state writes a data byte to memory at a specified address (possibly using register indirect or indexed addressing):
         Initialisation Parameters:
@@ -258,6 +304,8 @@ def MW(address=None, indirect=None, value=None, source=None):
         - Optionally: 'indirect' the name of the register to take the address from
         - Optionally: 'value' the value to write.
         - Optionally: 'source' a register from which to obtain the value to write. (if Neither value nor source is specified it will be cascaded in)
+        - Optionally: 'action' an action to be taken at the end of the state
+        - Optionally: 'extra' a number of extra t-cycles to wait for
         Args In:
         - Optionally: 'value' a single integer cascaded from a previous state
         - Optionally: 'address' a single integer cascaded from a previous state
@@ -275,6 +323,8 @@ def MW(address=None, indirect=None, value=None, source=None):
             self.indirect = indirect
             self.value    = value
             self.source   = source
+            self.action   = action
+            self.extra    = extra
             super(_MW, self).__init__()
 
         def fetchlocked(self):
@@ -303,6 +353,12 @@ def MW(address=None, indirect=None, value=None, source=None):
 
             self.cpu.membus.write(self.address, self.value)
             self.kwargs['address'] = self.address + 1
+
+            for n in range(0,self.extra):
+                yield
+
+            if self.action is not None:
+                self.action(self, self.value)
             raise StopIteration
         
     return _MW
@@ -645,6 +701,22 @@ INSTRUCTION_STATES = {
     (0xED, 0x7B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('SPL')), MR(action=LDr('SPH')) ]),          # LD SP,(nn)
+    (0xED, 0x80) : (0, [],                [ MR(indirect="HL"),
+                                            MW(indirect="DE",
+                                                extra=2,
+                                                action=do_each(inc("HL"),
+                                                                inc("DE"),
+                                                                dec("BC"),
+                                                                on_zero("BC", clear_flag("V")),
+                                                                on_zero("BC", early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDI
+    (0xED, 0xA0) : (0, [],                [ MR(indirect="HL"),
+                                            MW(indirect="DE",
+                                                extra=2,
+                                                action=do_each(inc("HL"),
+                                                                inc("DE"),
+                                                                dec("BC"),
+                                                                on_zero("BC", clear_flag("V")))) ]), # LDI
     (0xFD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IY')) ]),   # LD IY,nn
     (0xFD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
