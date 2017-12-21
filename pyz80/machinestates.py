@@ -706,15 +706,6 @@ INSTRUCTION_STATES = {
     (0xED, 0x7B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('SPL')), MR(action=LDr('SPH')) ]),          # LD SP,(nn)
-    (0xED, 0x80) : (0, [],                [ MR(indirect="HL"),
-                                            MW(indirect="DE",
-                                                extra=2,
-                                                action=do_each(inc("HL"),
-                                                                inc("DE"),
-                                                                dec("BC"),
-                                                                on_zero("BC", clear_flag("V")),
-                                                                on_zero("BC", early_abort()))),
-                                            IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDI
     (0xED, 0xA0) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
@@ -722,6 +713,31 @@ INSTRUCTION_STATES = {
                                                                 inc("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")))) ]), # LDI
+    (0xED, 0xA8) : (0, [],                [ MR(indirect="HL"),
+                                            MW(indirect="DE",
+                                                extra=2,
+                                                action=do_each(dec("HL"),
+                                                                dec("DE"),
+                                                                dec("BC"),
+                                                                on_zero("BC", clear_flag("V")))) ]), # LDD
+    (0xED, 0xB0) : (0, [],                [ MR(indirect="HL"),
+                                            MW(indirect="DE",
+                                                extra=2,
+                                                action=do_each(inc("HL"),
+                                                                inc("DE"),
+                                                                dec("BC"),
+                                                                on_zero("BC", clear_flag("V")),
+                                                                on_zero("BC", early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDIR
+    (0xED, 0xB8) : (0, [],                [ MR(indirect="HL"),
+                                            MW(indirect="DE",
+                                                extra=2,
+                                                action=do_each(dec("HL"),
+                                                                dec("DE"),
+                                                                dec("BC"),
+                                                                on_zero("BC", clear_flag("V")),
+                                                                on_zero("BC", early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDDR
     (0xFD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IY')) ]),   # LD IY,nn
     (0xFD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),

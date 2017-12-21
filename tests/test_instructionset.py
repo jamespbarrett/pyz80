@@ -404,9 +404,30 @@ class TestInstructionSet(unittest.TestCase):
     def test_ldir(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0x80 ], 21, [ (PC==0x00), (HL==0x1BBD), (DE==0x2BBD), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDIR (count non-zero)" ],
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0x80 ], 16, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDIR (count zero)" ],
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), M(0x1BBD, 0xC), F("V",1) ], [ 0xED, 0x80 ], 37, [ (PC==0x02), (HL==0x1BBE), (DE==0x2BBE), (BC==0x0), (M[0x2BBC]==0xB), (M[0x2BBD]==0xC), (F["V"]==0) ], "LDIR (loop)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xB0 ], 21, [ (PC==0x00), (HL==0x1BBD), (DE==0x2BBD), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDIR (count non-zero)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xB0 ], 16, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDIR (count zero)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), M(0x1BBD, 0xC), F("V",1) ], [ 0xED, 0xB0 ], 37, [ (PC==0x02), (HL==0x1BBE), (DE==0x2BBE), (BC==0x0), (M[0x2BBC]==0xB), (M[0x2BBD]==0xC), (F["V"]==0) ], "LDIR (loop)" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ldd(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xA8 ], 16, [ (PC==0x02), (HL==0x1BBB), (DE==0x2BBB), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDI" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xA8 ], 16, [ (PC==0x02), (HL==0x1BBB), (DE==0x2BBB), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDI" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_lddr(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xB8 ], 21, [ (PC==0x00), (HL==0x1BBB), (DE==0x2BBB), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDIR (count non-zero)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xB8 ], 16, [ (PC==0x02), (HL==0x1BBB), (DE==0x2BBB), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDIR (count zero)" ],
+            [ [ HL(0x1BBD), DE(0x2BBD), BC(0x2), M(0x1BBC, 0xB), M(0x1BBD, 0xC), F("V",1) ], [ 0xED, 0xB8 ], 37, [ (PC==0x02), (HL==0x1BBB), (DE==0x2BBB), (BC==0x0), (M[0x2BBC]==0xB), (M[0x2BBD]==0xC), (F["V"]==0) ], "LDIR (loop)" ],
             ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
