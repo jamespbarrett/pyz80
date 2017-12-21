@@ -106,6 +106,50 @@ def early_abort():
             state.pipeline.pop()
     return _inner
 
+def set_flags(flags="SZ5-3---", key="value", source=None, value=None):
+    """Set the flags register according to the passed value"""
+    def _inner(state, *args):
+        if value is not None:
+            if callable(value):
+                D = value(state)
+            else:
+                D = value
+        elif source is not None:
+            D = getattr(state.cpu.reg, source)
+        else:
+            D = state.kwargs[key]
+
+        if flags[0] == 'S':
+            if (D >> 7)&0x1 == 1:
+                state.cpu.reg.setflag('S')
+            else:
+                state.cpu.reg.resetflag('S')
+        if flags[1] == 'Z':
+            if (D == 0):
+                state.cpu.reg.setflag('Z')
+            else:
+                state.cpu.reg.resetflag('Z')
+        if flags[2] == '5':
+            if (D >> 5)&0x1 == 1:
+                state.cpu.reg.setflag('5')
+            else:
+                state.cpu.reg.resetflag('5')
+        if flags[4] == '3':
+            if (D >> 3)&0x1 == 1:
+                state.cpu.reg.setflag('3')
+            else:
+                state.cpu.reg.resetflag('3')
+        if flags[5] == '*':
+            if state.cpu.iff2 == 1:
+                state.cpu.reg.setflag('P')
+            else:
+                state.cpu.reg.resetflag('P')
+        for n in range(0,7):
+            if flags[7-n] == '1':
+                state.cpu.reg.F = state.cpu.reg.F | (1 << n)
+            elif flags[7-n] == '0':
+                state.cpu.reg.F = state.cpu.reg.F & (0xFF - (1 << n))
+    return _inner
 
 # Machine States
 
@@ -685,7 +729,7 @@ INSTRUCTION_STATES = {
                                             OD(key="address",
                                             compound=high_after_low),
                                             MW(source="C"), MW(source="B") ]),                        # LD (nn),BC
-    (0xED, 0x47) : (0, [LDrs('I', 'A'),], []),                                                        # LD I,A
+    (0xED, 0x47) : (0, [LDrs('I', 'A')], []),                                                         # LD I,A
     (0xED, 0x4B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('C')), MR(action=LDr('B')) ]),              # LD BC,(nn)
@@ -694,11 +738,11 @@ INSTRUCTION_STATES = {
                                             OD(key="address", compound=high_after_low),
                                             MW(source="E"),
                                             MW(source="D") ]),                                        # LD (nn),DE
-    (0xED, 0x57) : (0, [LDrs('A', 'I'),], []),                                                        # LD A,I
+    (0xED, 0x57) : (0, [LDrs('A', 'I'), set_flags("SZ503*0-", source='I') ], []),                     # LD A,I
     (0xED, 0x5B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('E')), MR(action=LDr('D')) ]),              # LD DE,(nn)
-    (0xED, 0x5F) : (0, [LDrs('A', 'R'),], []),                                                        # LD A,R
+    (0xED, 0x5F) : (0, [LDrs('A', 'R'), set_flags("SZ503*0-", source='R') ], []),                     # LD A,R
     (0xED, 0x73) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="SPL"),
@@ -709,21 +753,24 @@ INSTRUCTION_STATES = {
     (0xED, 0xA0) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(inc("HL"),
+                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                                inc("HL"),
                                                                 inc("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")))) ]), # LDI
     (0xED, 0xA8) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(dec("HL"),
+                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                                dec("HL"),
                                                                 dec("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")))) ]), # LDD
     (0xED, 0xB0) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(inc("HL"),
+                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                                inc("HL"),
                                                                 inc("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")),
@@ -732,7 +779,8 @@ INSTRUCTION_STATES = {
     (0xED, 0xB8) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(dec("HL"),
+                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                                dec("HL"),
                                                                 dec("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")),
@@ -740,11 +788,11 @@ INSTRUCTION_STATES = {
                                             IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDDR
     (0xFD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IY')) ]),   # LD IY,nn
     (0xFD, 0x22) : (0, [],                [ OD(key="address"),
-                                            OD(key="address", compound=high_after_low),
+                                            OD(key="address"),
                                             MW(source="IYL"),
                                             MW(source="IYH") ]),                                      # LD (nn),IY
     (0xFD, 0x2A) : (0, [],                [ OD(key="address"),
-                                            OD(key="address", compound=high_after_low),
+                                            OD(key="address"),
                                             MR(action=LDr('IYL')), MR(action=LDr('IYH')) ]),          # LD IY,(nn)
     (0xFD, 0x36) : (0, [],                [ OD(key='address', signed=True),
                                                 OD(key='value'),

@@ -8,6 +8,8 @@ class Z80CPU(object):
     def __init__(self, iobus, membus):
         self.iobus  = iobus
         self.membus = membus
+        self.iff1 = 0
+        self.iff2 = 0
 
         self.reg = RegisterFile()
 

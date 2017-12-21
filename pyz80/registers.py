@@ -51,8 +51,12 @@ class RegisterFile(object):
             return (self.F >> 7)&0x1
         elif name == "Z":
             return (self.F >> 6)&0x1
+        elif name == '5':
+            return (self.F >> 5)&0x1
         elif name == "H":
             return (self.F >> 4)&0x1
+        elif name == '3':
+            return (self.F >> 3)&0x1
         elif name == "P" or name == "V":
             return (self.F >> 2)&0x1
         elif name == "N":
@@ -67,8 +71,12 @@ class RegisterFile(object):
             self.F |= 1 << 7
         elif name == "Z":
             self.F |= 1 << 6
+        elif name== '5':
+            self.F |= 1 << 5
         elif name == "H":
             self.F |= 1 << 4
+        elif name== '3':
+            self.F |= 1 << 3
         elif name == "P" or name == "V":
             self.F |= 1 << 2
         elif name == "N":
@@ -84,8 +92,12 @@ class RegisterFile(object):
             self.F &= 0xFF - (1 << 7)
         elif name == "Z":
             self.F &= 0xFF - (1 << 6)
+        elif name == "5":
+            self.F &= 0xFF - (1 << 5)
         elif name == "H":
             self.F &= 0xFF - (1 << 4)
+        elif name == "3":
+            self.F &= 0xFF - (1 << 3)
         elif name == "P" or name == "V":
             self.F &= 0xFF - (1 << 2)
         elif name == "N":

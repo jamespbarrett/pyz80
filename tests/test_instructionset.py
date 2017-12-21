@@ -39,6 +39,14 @@ def ex(tc, cpu, name):
 def exx(tc, cpu, name):
     cpu.reg.exx()
 
+def ei(tc, cpu, name):
+    cpu.iff1 = 1
+    cpu.iff2 = 1
+
+def di(tc, cpu, name):
+    cpu.iff1 = 0
+    cpu.iff2 = 0
+
 class MEM(object):
     def __call__(self, key, value):
         return write_to_memory(key, value)
@@ -72,6 +80,11 @@ class FLAG(object):
                     tc.assertEqual(rval, other, msg="""[ {} ] Expected flag {} to be {}, was actually {}""".format(name, self.key, other, rval))
                 return __inner
         return _inner(key)
+
+    def __eq__(self, other):
+        def __inner(tc, cpu, name):
+            return expect_register_equal('F', other)
+        return __inner
 
 class REG(object):
     def __init__(self, r):
@@ -168,10 +181,18 @@ class TestInstructionSet(unittest.TestCase):
     def test_LD(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
-            [ [ I(0xB) ], [ 0xED, 0x57 ], 9, [ (PC == 0x02), (A == 0xB) ], "LD A,I" ],
-            [ [ R(0xB) ], [ 0xED, 0x5F ], 9, [ (PC == 0x02), (A == 0xB) ], "LD A,R" ],
-            [ [ A(0xB) ], [ 0xED, 0x47 ], 9, [ (PC == 0x02), (I == 0xB) ], "LD I,A" ],
-            [ [ A(0xB) ], [ 0xED, 0x4F ], 9, [ (PC == 0x02), (R == 0xB) ], "LD R,A" ],
+            [ [ I(0x0B) ],     [ 0xED, 0x57 ], 9, [ (PC == 0x02), (A == 0x0B), (F == 0x08) ], "LD A,I (I == 0x0B)" ],
+            [ [ I(0x80) ],     [ 0xED, 0x57 ], 9, [ (PC == 0x02), (A == 0x80), (F == 0x80) ], "LD A,I (I == 0x80)" ],
+            [ [ I(0x00) ],     [ 0xED, 0x57 ], 9, [ (PC == 0x02), (A == 0x00), (F == 0x40) ], "LD A,I (I == 0x00)" ],
+            [ [ I(0x20) ],     [ 0xED, 0x57 ], 9, [ (PC == 0x02), (A == 0x20), (F == 0x20) ], "LD A,I (I == 0x20)" ],
+            [ [ ei, I(0x01) ], [ 0xED, 0x57 ], 9, [ (PC == 0x02), (A == 0x01), (F == 0x04) ], "LD A,I (I == 0x01, iff2=1)" ],
+            [ [ R(0x0B) ],     [ 0xED, 0x5F ], 9, [ (PC == 0x02), (A == 0x0B), (F == 0x08) ], "LD A,R (R == 0x0B)" ],
+            [ [ R(0x80) ],     [ 0xED, 0x5F ], 9, [ (PC == 0x02), (A == 0x80), (F == 0x80) ], "LD A,R (R == 0x80)" ],
+            [ [ R(0x00) ],     [ 0xED, 0x5F ], 9, [ (PC == 0x02), (A == 0x00), (F == 0x40) ], "LD A,R (R == 0x00)" ],
+            [ [ R(0x20) ],     [ 0xED, 0x5F ], 9, [ (PC == 0x02), (A == 0x20), (F == 0x20) ], "LD A,R (R == 0x20)" ],
+            [ [ ei, R(0x01) ], [ 0xED, 0x5F ], 9, [ (PC == 0x02), (A == 0x01), (F == 0x04) ], "LD A,R (R == 0x01, iff2=1)" ],
+            [ [ A(0x0B) ], [ 0xED, 0x47 ], 9, [ (PC == 0x02), (I == 0x0B) ], "LD I,A" ],
+            [ [ A(0x0B) ], [ 0xED, 0x4F ], 9, [ (PC == 0x02), (R == 0x0B) ], "LD R,A" ],
 
             [ [], [ 0x01, 0xBC, 0x1B ], 10, [ (PC == 0x03), (BC == 0x1BBC), ], "LD BC,1BBCH" ],
             [ [], [ 0x11, 0xBC, 0x1B ], 10, [ (PC == 0x03), (DE == 0x1BBC), ], "LD DE,1BBCH" ],
@@ -394,8 +415,10 @@ class TestInstructionSet(unittest.TestCase):
     def test_ldi(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDI" ],
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02), (HL==0x1BBD), (DE==0x2BBD), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDI" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x00), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x38) ], "LDI (nz, A==0x00)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x08), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x30) ], "LDI (nz, A==0x08)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x30), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x08) ], "LDI (nz, A==0x30)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x01), A(0x00), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x0),(M[0x2BBC]==0x2B), (F==0x28) ], "LDI (z, A==0z00)" ],
             ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
