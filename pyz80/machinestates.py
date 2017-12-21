@@ -150,47 +150,52 @@ class MachineState(object):
 def high_after_low(x,y):
     return ((x << 8) | y)
 
-class OCF(MachineState):
-    """This state fetches an OP Code from memory and advances the PC in 4 t-cycles.
-    Args In:
-    - None
-    Args Out:
-    - None
-    Side Effects:
-    - Increments PC
-    - Decodes OP-Code and adds new machine states to the pipeline if required
-    Returned Values:
-    - None
-    Time Taken:
-    - 4 clock cycles, or more if decode indicates there should be."""
+def OCF(prefix=None):
+    class _OCF(MachineState):
+        """This state fetches an OP Code from memory and advances the PC in 4 t-cycles.
+        Initialisation Parameters:
+        - Optionally: 'prefix' for a multibyte op-code this will be prefixed to what is loaded
+        Args In:
+        - None
+        Args Out:
+        - None
+        Side Effects:
+        - Increments PC
+        - Decodes OP-Code and adds new machine states to the pipeline if required
+        Returned Values:
+        - None
+        Time Taken:
+        - 4 clock cycles, or more if decode indicates there should be."""
 
-    def fetchlocked(self):
-        return True
+        def __init__(self):
+            self.prefix = prefix
+            super(_OCF,self).__init__()
 
-    def run(self):
-        PC = self.cpu.reg.PC
-        yield
+        def fetchlocked(self):
+            return True
 
-        inst = self.cpu.membus.read(PC)
-        yield
-
-        (extra_clocks, actions, states) = decode_instruction(inst)
-        if MB in actions:
-            inst = (inst, self.cpu.membus.read(PC + 1))
-            (extra_clocks, actions, states) = decode_instruction(inst)
-            self.cpu.reg.PC = PC + 2
-        else:
-            self.cpu.reg.PC = PC + 1
-        states = [ state().setcpu(self.cpu) for state in states ]
-        yield
-
-        for n in range(0,extra_clocks-1):
+        def run(self):
+            PC = self.cpu.reg.PC
             yield
 
-        self.pipeline.extend(states)
-        for action in actions:
-            action(self)
-        raise StopIteration
+            inst = self.cpu.membus.read(PC)
+            if self.prefix is not None:
+                inst = (self.prefix, inst)
+            yield
+
+            (extra_clocks, actions, states) = decode_instruction(inst)
+            self.cpu.reg.PC = PC + 1
+            states = [ state().setcpu(self.cpu) for state in states ]
+            yield
+
+            for n in range(0,extra_clocks-1):
+                yield
+
+            self.pipeline.extend(states)
+            for action in actions:
+                action(self)
+            raise StopIteration
+    return _OCF
 
 def OD(compound=high_after_low, action=None, key="value", signed=False):
     class _OD(MachineState):
@@ -609,12 +614,12 @@ INSTRUCTION_STATES = {
                                                       SW(key="H"), SW(key="L", extra=2) ]),           # EX (SP),HL
     0xE5 : (1, [],                  [ SW(source="H"), SW(source="L") ]),                              # PUSH HL
     0xEB : (0, [ EX('DE', 'HL') ],  []),                                                              # EX DE,HL
-    0xED : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
-    0xDD : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
+    0xED : (0, [],                  [ OCF(prefix=0xED) ]),                                            # -- Byte one of multibyte OPCODE
+    0xDD : (0, [],                  [ OCF(prefix=0xDD) ]),                                            # -- Byte one of multibyte OPCODE
     0xF1 : (0, [],                  [ SR(), SR(action=LDr("AF")) ]),                                  # POP AF
     0xF5 : (1, [],                  [ SW(source="A"), SW(source="F") ]),                              # PUSH AF
     0xF9 : (0, [ LDrs('SP', 'HL') ], []),                                                             # LD SP,HL 
-    0xFD : (0, [MB], []),                                                                             # -- Byte one of multibyte OPCODE
+    0xFD : (0, [],                  [ OCF(prefix=0xFD) ]),                                            # -- Byte one of multibyte OPCODE
 
     # Multibyte opcodes
     (0xDD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IX')) ]),                            # LD IX,nn

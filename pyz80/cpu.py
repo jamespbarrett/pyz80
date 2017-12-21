@@ -14,7 +14,7 @@ class Z80CPU(object):
         # This member holds all of the active instruction pipelines currently being worked on by the cpu
         # It starts off with a single pipeline containing a single OCF (Op Code Fetch) machine state
         self.pipelines = [
-            [ OCF().setcpu(self), ],
+            [ OCF()().setcpu(self), ],
             ]
 
     def clock(self):
@@ -24,7 +24,7 @@ class Z80CPU(object):
         while len(self.pipelines) > 0 and len(self.pipelines[0]) == 0:
             self.pipelines.pop(0)
         if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
-            self.pipelines.append([ OCF().setcpu(self), ])
+            self.pipelines.append([ OCF()().setcpu(self), ])
 
         if len(self.pipelines) == 0:
             raise CPUStalled("No instructions in pipeline")
