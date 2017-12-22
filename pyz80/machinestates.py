@@ -61,6 +61,12 @@ def add_register(r):
         return getattr(state.cpu.reg, r) + d
     return _inner
 
+def subfrom(r="A"):
+    """Subtract the value from the value in a register (A by default)."""
+    def _inner(state, d, *args):
+        return getattr(state.cpu.reg, r) - d
+    return _inner
+
 def do_each(*actions):
     """Perform a series of actions."""
     def _inner(state, *args):
@@ -93,6 +99,13 @@ def on_zero(reg, action):
             action(state, *args)
     return _inner
 
+def on_flag(flag, action):
+    """Only take action is flag is set"""
+    def _inner(state, *args):
+        if state.cpu.reg.getflag(flag) == 1:
+            action(state, *args)
+    return _inner
+
 def clear_flag(flag):
     """Clear a flag"""
     def _inner(state, *args):
@@ -118,24 +131,25 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None):
             D = getattr(state.cpu.reg, source)
         else:
             D = state.kwargs[key]
+        d = D&0xFF
 
         if flags[0] == 'S':
-            if (D >> 7)&0x1 == 1:
+            if (d >> 7)&0x1 == 1:
                 state.cpu.reg.setflag('S')
             else:
                 state.cpu.reg.resetflag('S')
         if flags[1] == 'Z':
-            if (D == 0):
+            if (d == 0):
                 state.cpu.reg.setflag('Z')
             else:
                 state.cpu.reg.resetflag('Z')
         if flags[2] == '5':
-            if (D >> 5)&0x1 == 1:
+            if (d >> 5)&0x1 == 1:
                 state.cpu.reg.setflag('5')
             else:
                 state.cpu.reg.resetflag('5')
         if flags[4] == '3':
-            if (D >> 3)&0x1 == 1:
+            if (d >> 3)&0x1 == 1:
                 state.cpu.reg.setflag('3')
             else:
                 state.cpu.reg.resetflag('3')
@@ -144,6 +158,24 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None):
                 state.cpu.reg.setflag('P')
             else:
                 state.cpu.reg.resetflag('P')
+        elif flags[5] == "V":
+            if D > 127 or D < -128:
+                state.cpu.reg.setflag("V")
+            else:
+                state.cpu.reg.resetflag("V")
+        elif flags[5] == "P":
+            p = d
+            while p > 1:
+                p = (p&0x1) ^ (p >> 1)
+            if p == 0:
+                state.cpu.reg.setflag("P")
+            else:
+                state.cpu.reg.resetflag("P")
+        if flags[0] == 'C':
+            if D > 255 or D < 0:
+                state.cpu.reg.setflag("C")
+            else:
+                state.cpu.reg.resetflag("C")
         for n in range(0,7):
             if flags[7-n] == '1':
                 state.cpu.reg.F = state.cpu.reg.F | (1 << n)
@@ -753,39 +785,69 @@ INSTRUCTION_STATES = {
     (0xED, 0xA0) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                action=do_each(set_flags("--50310-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
                                                                 inc("HL"),
                                                                 inc("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")))) ]), # LDI
+    (0xED, 0xA1) : (0, [],                [ MR(indirect="HL"),
+                                            IO(5, True, transform={'value' : subfrom() },
+                                                   action=do_each(set_flags("-Z50311-"),
+                                                                  inc("HL"),
+                                                                  dec("BC"),
+                                                                  on_zero("BC", clear_flag("V")))) ]), # CPI
     (0xED, 0xA8) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                action=do_each(set_flags("--50310-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
                                                                 dec("HL"),
                                                                 dec("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")))) ]), # LDD
+    (0xED, 0xA9) : (0, [],                [ MR(indirect="HL"),
+                                            IO(5, True, transform={'value' : subfrom() },
+                                                   action=do_each(set_flags("-Z50311-"),
+                                                                  dec("HL"),
+                                                                  dec("BC"),
+                                                                  on_zero("BC", clear_flag("V")))) ]), # CPD
     (0xED, 0xB0) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                action=do_each(set_flags("--50310-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
                                                                 inc("HL"),
                                                                 inc("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")),
                                                                 on_zero("BC", early_abort()))),
                                             IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDIR
+    (0xED, 0xB1) : (0, [],                [ MR(indirect="HL"),
+                                            IO(5, True, transform={'value' : subfrom() },
+                                                   action=do_each(set_flags("-Z50311-"),
+                                                                  inc("HL"),
+                                                                  dec("BC"),
+                                                                  on_zero("BC", clear_flag("V")),
+                                                                  on_zero("BC", early_abort()),
+                                                                  on_flag('Z', early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # CPIR
     (0xED, 0xB8) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
-                                                action=do_each(set_flags("--50130-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
+                                                action=do_each(set_flags("--50310-", value=lambda state : state.kwargs['value'] + state.cpu.reg.A),
                                                                 dec("HL"),
                                                                 dec("DE"),
                                                                 dec("BC"),
                                                                 on_zero("BC", clear_flag("V")),
                                                                 on_zero("BC", early_abort()))),
                                             IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # LDDR
+    (0xED, 0xB9) : (0, [],                [ MR(indirect="HL"),
+                                            IO(5, True, transform={'value' : subfrom() },
+                                                   action=do_each(set_flags("-Z50311-"),
+                                                                  dec("HL"),
+                                                                  dec("BC"),
+                                                                  on_zero("BC", clear_flag("V")),
+                                                                  on_zero("BC", early_abort()),
+                                                                  on_flag('Z', early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # CPDR
     (0xFD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IY')) ]),   # LD IY,nn
     (0xFD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address"),

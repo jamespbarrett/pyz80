@@ -82,9 +82,7 @@ class FLAG(object):
         return _inner(key)
 
     def __eq__(self, other):
-        def __inner(tc, cpu, name):
-            return expect_register_equal('F', other)
-        return __inner
+        return expect_register_equal('F', other)
 
 class REG(object):
     def __init__(self, r):
@@ -415,10 +413,10 @@ class TestInstructionSet(unittest.TestCase):
     def test_ldi(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x00), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x38) ], "LDI (nz, A==0x00)" ],
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x08), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x30) ], "LDI (nz, A==0x08)" ],
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x30), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x08) ], "LDI (nz, A==0x30)" ],
-            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x01), A(0x00), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x0),(M[0x2BBC]==0x2B), (F==0x28) ], "LDI (z, A==0z00)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x00), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x2C) ], "LDI (nz, A==0x00)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x08), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x24) ], "LDI (nz, A==0x08)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x02), A(0x20), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x1),(M[0x2BBC]==0x2B), (F==0x0C) ], "LDI (nz, A==0x20)" ],
+            [ [ HL(0x1BBC), DE(0x2BBC), BC(0x01), A(0x00), M(0x1BBC, 0x2B) ], [ 0xED, 0xA0 ], 16, [ (PC==0x02),(HL==0x1BBD),(DE==0x2BBD),(BC==0x0),(M[0x2BBC]==0x2B), (F==0x28) ], "LDI (z,  A==0z00)" ],
             ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
@@ -451,6 +449,50 @@ class TestInstructionSet(unittest.TestCase):
             [ [ HL(0x1BBC), DE(0x2BBC), BC(0x2), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xB8 ], 21, [ (PC==0x00), (HL==0x1BBB), (DE==0x2BBB), (BC==0x1), (M[0x2BBC]==0xB), (F["V"]==1) ], "LDIR (count non-zero)" ],
             [ [ HL(0x1BBC), DE(0x2BBC), BC(0x1), M(0x1BBC, 0xB), F("V",1) ], [ 0xED, 0xB8 ], 16, [ (PC==0x02), (HL==0x1BBB), (DE==0x2BBB), (BC==0x0), (M[0x2BBC]==0xB), (F["V"]==0) ], "LDIR (count zero)" ],
             [ [ HL(0x1BBD), DE(0x2BBD), BC(0x2), M(0x1BBC, 0xB), M(0x1BBD, 0xC), F("V",1) ], [ 0xED, 0xB8 ], 37, [ (PC==0x02), (HL==0x1BBB), (DE==0x2BBB), (BC==0x0), (M[0x2BBC]==0xB), (M[0x2BBD]==0xC), (F["V"]==0) ], "LDIR (loop)" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_cpi(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), BC(0x2), M(0x1BBC, 0xFE), A(0x00) ], [ 0xED, 0xA1 ], 16, [ (PC==0x02), (HL==0x1BBD), (BC==0x1), (F==0x06) ], "CPI (ne)" ],
+            [ [ HL(0x1BBC), BC(0x2), M(0x1BBC, 0xFE), A(0xFE) ], [ 0xED, 0xA1 ], 16, [ (PC==0x02), (HL==0x1BBD), (BC==0x1), (F==0x46) ], "CPI (eq)" ],
+            [ [ HL(0x1BBC), BC(0x1), M(0x1BBC, 0xFE), A(0x00) ], [ 0xED, 0xA1 ], 16, [ (PC==0x02), (HL==0x1BBD), (BC==0x0), (F==0x02) ], "CPI (ne,last)" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_cpir(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), BC(0x3), M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), A(0xCA) ], [ 0xED, 0xB1 ], 37, [ (PC==0x02), (HL==0x1BBE), (BC==0x1), (F==0x46) ], "CPIR (found after 2 cycles)" ],
+            [ [ HL(0x1BBC), BC(0x3), M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), A(0x00) ], [ 0xED, 0xB1 ], 58, [ (PC==0x02), (HL==0x1BBF), (BC==0x0), (F==0x42) ], "CPIR (found after 3 cycles)" ],
+            [ [ HL(0x1BBC), BC(0x3), M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), A(0xBA) ], [ 0xED, 0xB1 ], 58, [ (PC==0x02), (HL==0x1BBF), (BC==0x0), (F==0x2A) ], "CPIR (not found after 3 cycles)" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_cpd(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), BC(0x2), M(0x1BBC, 0xFE), A(0x00) ], [ 0xED, 0xA9 ], 16, [ (PC==0x02), (HL==0x1BBB), (BC==0x1), (F==0x06) ], "CPD (ne)" ],
+            [ [ HL(0x1BBC), BC(0x2), M(0x1BBC, 0xFE), A(0xFE) ], [ 0xED, 0xA9 ], 16, [ (PC==0x02), (HL==0x1BBB), (BC==0x1), (F==0x46) ], "CPD (eq)" ],
+            [ [ HL(0x1BBC), BC(0x1), M(0x1BBC, 0xFE), A(0x00) ], [ 0xED, 0xA9 ], 16, [ (PC==0x02), (HL==0x1BBB), (BC==0x0), (F==0x02) ], "CPD (ne,last)" ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_cpdr(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBE), BC(0x3), M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), A(0xCA) ], [ 0xED, 0xB9 ], 37, [ (PC==0x02), (HL==0x1BBC), (BC==0x1), (F==0x46) ], "CPIR (found after 2 cycles)" ],
+            [ [ HL(0x1BBE), BC(0x3), M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), A(0xFE) ], [ 0xED, 0xB9 ], 58, [ (PC==0x02), (HL==0x1BBB), (BC==0x0), (F==0x42) ], "CPIR (found after 3 cycles)" ],
+            [ [ HL(0x1BBE), BC(0x3), M(0x1BBC, 0xFE), M(0x1BBD, 0xCA), A(0xBA) ], [ 0xED, 0xB9 ], 58, [ (PC==0x02), (HL==0x1BBB), (BC==0x0), (F==0x2A) ], "CPIR (not found after 3 cycles)" ],
             ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
