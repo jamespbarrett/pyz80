@@ -884,3 +884,33 @@ class TestInstructionSet(unittest.TestCase):
 
             for (pre, instructions, t_cycles, post, name) in tests:
                 self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_xor(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        for (X,Y, f) in [ (0x11, 0x45, 0x00),
+                          (0x0A, 0xFF, 0xA4),
+                          (0x0F, 0xF0, 0xAC) ]:
+            tests = [
+                [ [ A(X), B(Y) ], [ 0xA8 ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR B ({}^{})".format(X,Y) ],
+                [ [ A(X), C(Y) ], [ 0xA9 ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR C ({}^{})".format(X,Y) ],
+                [ [ A(X), D(Y) ], [ 0xAA ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR D ({}^{})".format(X,Y) ],
+                [ [ A(X), E(Y) ], [ 0xAB ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR E ({}^{})".format(X,Y) ],
+                [ [ A(X), H(Y) ], [ 0xAC ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR H ({}^{})".format(X,Y) ],
+                [ [ A(X), L(Y) ], [ 0xAD ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR L ({}^{})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xAE ], 7, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR (HL) ({}^{})".format(X,Y) ],
+                [ [ A(X) ], [ 0xEE, Y ], 7, [ (PC==0x02), (A == (X^Y)), (F==f) ], "XOR {} ({}^{})".format(Y,X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xAE, 0x0C ], 19, [ (PC==0x03), (A == (X^Y)), (F==f) ], "XOR (IX+0CH) ({}^{})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xAE, 0x0C ], 19, [ (PC==0x03), (A == (X^Y)), (F==f) ], "XOR (IY+0CH) ({}^{})".format(X,Y) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+        for X in [ 0x11,
+                   0x0A, ]:
+            tests = [
+                [ [ A(X) ], [ 0xAF ], 4, [ (PC==0x01), (A == 0x00), (F==0x44) ], "XOR A ({}^{})".format(X,X) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)

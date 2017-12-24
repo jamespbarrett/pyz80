@@ -778,6 +778,24 @@ INSTRUCTION_STATES = {
                                                         dest="A")) ] ),                               # AND (HL)
     0xA7 : (0, [ set_flags("SZ513P00", value=lambda state : state.cpu.reg.A & state.cpu.reg.A, key="value"),
                  LDr('A') ],        [] ),                                                             # AND A
+    0xA8 : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.B, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR B
+    0xA9 : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.C, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR C
+    0xAA : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.D, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR D
+    0xAB : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.E, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR E
+    0xAC : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.H, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR H
+    0xAD : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.L, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR L
+    0xAE : (0, [],                  [ MR(indirect="HL",
+                                        action=set_flags("SZ503P00",
+                                                        value=lambda state, v : state.cpu.reg.A ^ v,
+                                                        dest="A")) ] ),                               # XOR (HL)
+    0xAF : (0, [ set_flags("SZ503P00", value=lambda state : state.cpu.reg.A ^ state.cpu.reg.A, key="value"),
+                 LDr('A') ],        [] ),                                                             # XOR A
     0xC1 : (0, [],                  [ SR(), SR(action=LDr("BC")) ]),                                  # POP BC
     0xC3 : (0, [],                  [ OD(), OD(action=JP) ]),                                         # JP nn
     0xC5 : (1, [],                  [ SW(source="B"), SW(source="C") ]),                              # PUSH BC
@@ -803,6 +821,9 @@ INSTRUCTION_STATES = {
     0xE6 : (0, [],                  [ OD(action=set_flags("SZ513P00",
                                                         value=lambda state, v : state.cpu.reg.A & v,
                                                         dest="A")) ] ),                               # AND n
+    0xEE : (0, [],                  [ OD(action=set_flags("SZ503P00",
+                                                        value=lambda state, v : state.cpu.reg.A ^ v,
+                                                        dest="A")) ] ),                               # XOR n
     0xEB : (0, [ EX('DE', 'HL') ],  []),                                                              # EX DE,HL
     0xED : (0, [],                  [ OCF(prefix=0xED) ]),                                            # -- Byte one of multibyte OPCODE
     0xDD : (0, [],                  [ OCF(prefix=0xDD) ]),                                            # -- Byte one of multibyte OPCODE
@@ -891,6 +912,11 @@ INSTRUCTION_STATES = {
                                             MR(action=set_flags("SZ513P00",
                                                value=lambda state, v : state.cpu.reg.A & v,
                                                dest="A")) ] ),                                        # AND (IX+d)
+    (0xDD, 0xAE) : (0, [],                [ OD(key='address', signed=True),
+                                            IO(5, True, transform={'address' : add_register('IX') }),
+                                            MR(action=set_flags("SZ503P00",
+                                               value=lambda state, v : state.cpu.reg.A ^ v,
+                                               dest="A")) ] ),                                        # XOR (IX+d)
     (0xDD, 0xE1) : (0, [],                [ SR(), SR(action=LDr("IX")) ]),                            # POP IX
     (0xDD, 0xE3) : (0, [ RRr('H','IXH'), RRr('L','IXL') ],
                         [ SR(), SR(action=LDr("IX"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IX
@@ -1066,6 +1092,11 @@ INSTRUCTION_STATES = {
                                             MR(action=set_flags("SZ513P00",
                                                value=lambda state, v : state.cpu.reg.A & v,
                                                dest="A")) ] ),                                        # AND (IY+d)
+    (0xFD, 0xAE) : (0, [],                [ OD(key='address', signed=True),
+                                            IO(5, True, transform={'address' : add_register('IY') }),
+                                            MR(action=set_flags("SZ503P00",
+                                               value=lambda state, v : state.cpu.reg.A ^ v,
+                                               dest="A")) ] ),                                        # XOR (IY+d)
     (0xFD, 0xE1) : (0, [],                [ SR(), SR(action=LDr("IY")) ]),                            # POP IY
     (0xFD, 0xE3) : (0, [ RRr('H','IYH'), RRr('L','IYL') ],
                         [ SR(), SR(action=LDr("IY"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IY
