@@ -971,3 +971,26 @@ class TestInstructionSet(unittest.TestCase):
 
             for (pre, instructions, t_cycles, post, name) in tests:
                 self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_dec(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        for (X, f) in [ (0x00, 0xAA),
+                        (0x01, 0x42),
+                        (0x02, 0x02),
+                        (0x10, 0x0A),
+                        ]:
+            tests = [
+                [ [ B(X) ], [ 0x05 ], 4, [ (PC==0x01), (B == (X-1)&0xFF), (F==f) ], "DEC B (0x{:X} - 1)".format(X) ],
+                [ [ C(X) ], [ 0x0D ], 4, [ (PC==0x01), (C == (X-1)&0xFF), (F==f) ], "DEC C (0x{:X} - 1)".format(X) ],
+                [ [ D(X) ], [ 0x15 ], 4, [ (PC==0x01), (D == (X-1)&0xFF), (F==f) ], "DEC D (0x{:X} - 1)".format(X) ],
+                [ [ E(X) ], [ 0x1D ], 4, [ (PC==0x01), (E == (X-1)&0xFF), (F==f) ], "DEC E (0x{:X} - 1)".format(X) ],
+                [ [ H(X) ], [ 0x25 ], 4, [ (PC==0x01), (H == (X-1)&0xFF), (F==f) ], "DEC H (0x{:X} - 1)".format(X) ],
+                [ [ L(X) ], [ 0x2D ], 4, [ (PC==0x01), (L == (X-1)&0xFF), (F==f) ], "DEC L (0x{:X} - 1)".format(X) ],
+                [ [ M(0x1BBC,X), HL(0x1BBC) ], [ 0x35 ], 12, [ (PC==0x01), (M[0x1BBC] == (X-1)&0xFF), (F==f) ], "DEC (HL) (0x{:X} - 1)".format(X) ],
+                [ [ A(X) ], [ 0x3D ], 4, [ (PC==0x01), (A == (X-1)&0xFF), (F==f) ], "DEC A (0x{:X} - 1)".format(X) ],
+                [ [ M(0x1BBC,X), IX(0x1BB0) ], [ 0xDD, 0x35, 0x0C ], 23, [ (PC==0x03), (M[0x1BBC] == (X-1)&0xFF), (F==f) ], "DEC (IX+0CH) (0x{:X} - 1)".format(X) ],
+                [ [ M(0x1BBC,X), IY(0x1BB0) ], [ 0xFD, 0x35, 0x0C ], 23, [ (PC==0x03), (M[0x1BBC] == (X-1)&0xFF), (F==f) ], "DEC (IY+0CH) (0x{:X} - 1)".format(X) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
