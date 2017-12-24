@@ -329,7 +329,7 @@ def OD(compound=high_after_low, action=None, key="value", signed=False):
             raise StopIteration
     return _OD
 
-def MR(address=None, indirect=None, compound=high_after_low, action=None):
+def MR(address=None, indirect=None, compound=high_after_low, action=None, incaddr=True):
     class _MR(MachineState):
         """This state fetches a data byte from memory at a specified address (possibly using register indirect or indexed addressing):
         Initialisation Parameters:
@@ -356,6 +356,7 @@ def MR(address=None, indirect=None, compound=high_after_low, action=None):
             self.indirect = indirect
             self.compound = compound
             self.action   = action
+            self.incaddr  = incaddr
             super(_MR, self).__init__()
 
         def fetchlocked(self):
@@ -377,7 +378,8 @@ def MR(address=None, indirect=None, compound=high_after_low, action=None):
 
             if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
-            self.kwargs['address'] = self.address + 1
+            if self.incaddr:
+                self.kwargs['address'] = self.address + 1
             if self.action is not None:
                 self.action(self, D)
             else:
@@ -599,29 +601,48 @@ INSTRUCTION_STATES = {
     0x00 : (0, [],                  [] ),                                                             # NOP
     0x01 : (0, [],                  [ OD(), OD(action=LDr('BC')) ]),                                  # LD BC,nn
     0x02 : (0, [],                  [ MW(indirect="BC", source="A") ]),                               # LD (BC),A
+    0x04 : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.B + 1, key="value"), LDr('B') ],
+                                    [] ),                                                             # INC B
     0x06 : (0, [],                  [ OD(action=LDr('B')), ]),                                        # LD B,n
     0x08 : (0, [ EX() ],            []),                                                              # EX AF,AF'
+    0x0C : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.C + 1, key="value"), LDr('C') ],
+                                    [] ),                                                             # INC C
     0x0E : (0, [],                  [ OD(action=LDr('C')), ]),                                        # LD C,n
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ]),                          # LD A,(BC)
     0x11 : (0, [],                  [ OD(), OD(action=LDr('DE')) ]),                                  # LD DE,nn
     0x12 : (0, [],                  [ MW(indirect="DE", source="A") ]),                               # LD (DE),A
+    0x14 : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.D + 1, key="value"), LDr('D') ],
+                                    [] ),                                                             # INC D
     0x16 : (0, [],                  [ OD(action=LDr('D')), ]),                                        # LD D,n
     0x1A : (0, [],                  [ MR(indirect="DE", action=LDr("A")) ]),                          # LD A,(DE)
+    0x1C : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.E + 1, key="value"), LDr('E') ],
+                                    [] ),                                                             # INC E
     0x1E : (0, [],                  [ OD(action=LDr('E')), ]),                                        # LD E,n
     0x21 : (0, [],                  [ OD(), OD(action=LDr('HL')) ]),                                  # LD HL,nn
     0x22 : (0, [],                  [ OD(key="address"),
                                         OD(key="address",
                                         compound=high_after_low),
                                         MW(source="L"), MW(source="H") ]),                            # LD (nn),HL
+    0x24 : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.H + 1, key="value"), LDr('H') ],
+                                    [] ),                                                             # INC H
     0x26 : (0, [],                  [ OD(action=LDr('H')), ]),                                        # LD H,n
     0x2A : (0, [],                  [ OD(key="address"),
                                       OD(key="address", compound=high_after_low),
                                       MR(action=LDr('L')), MR(action=LDr('H')) ]),                    # LD HL,(nn)
+    0x2C : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.L + 1, key="value"), LDr('L') ],
+                                    [] ),                                                             # INC L
     0x2E : (0, [],                  [ OD(action=LDr('L')), ]),                                        # LD L,n
     0x31 : (0, [],                  [ OD(), OD(action=LDr('SP')) ]),                                  # LD SP,nn
     0x32 : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MW(source="A") ]),                                          # LD (nn),A
+    0x34 : (0, [],                  [ MR(indirect="HL",
+                                        action=set_flags("SZ5H3V0-",
+                                                        value=lambda state, v : v+1,
+                                                        key="value")),
+                                      MW(indirect="HL" )] ),                                          # ADD (HL)
     0x36 : (0, [],                  [ OD(), MW(indirect="HL") ]),                                     # LD (HL),n
+    0x3C : (0, [ set_flags("SZ5H3V0-", value=lambda state : state.cpu.reg.A + 1, key="value"), LDr('A') ],
+                                    [] ),                                                             # INC A
     0x3A : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MR(action=LDr("A")) ]),                                     # LD A,(nn)
     0x3E : (0, [],                  [ OD(action=LDr('A')), ]),                                        # LD A,n
@@ -883,6 +904,11 @@ INSTRUCTION_STATES = {
     (0xDD, 0x2A) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('IXL')), MR(action=LDr('IXH')) ]),          # LD IX,(nn)
+    (0xDD, 0x34) : (0, [],                [ OD(key='address', signed=True),
+                                            IO(5, True, transform={'address' : add_register('IX') }),
+                                            MR(action=set_flags("SZ5H3V0-", value=lambda state, v : v + 1, key="value"),
+                                               incaddr=False),
+                                            MW() ] ),                                                 # INC (IX+d)
     (0xDD, 0x36) : (0, [],                [ OD(key='address', signed=True),
                                                 OD(key='value'),
                                                 IO(5, True, transform={ 'address' : add_register('IX') }),
@@ -1072,6 +1098,11 @@ INSTRUCTION_STATES = {
     (0xFD, 0x2A) : (0, [],                [ OD(key="address"),
                                             OD(key="address"),
                                             MR(action=LDr('IYL')), MR(action=LDr('IYH')) ]),          # LD IY,(nn)
+    (0xFD, 0x34) : (0, [],                [ OD(key='address', signed=True),
+                                            IO(5, True, transform={'address' : add_register('IY') }),
+                                            MR(action=set_flags("SZ5H3V0-", value=lambda state, v : v + 1, key="value"),
+                                               incaddr=False),
+                                            MW() ] ),                                                 # INC (IY+d)
     (0xFD, 0x36) : (0, [],                [ OD(key='address', signed=True),
                                                 OD(key='value'),
                                                 IO(5, True, transform={ 'address' : add_register('IY') }),

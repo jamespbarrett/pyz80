@@ -947,3 +947,27 @@ class TestInstructionSet(unittest.TestCase):
 
             for (pre, instructions, t_cycles, post, name) in tests:
                 self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+
+    def test_inc(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        for (X, f) in [ (0x00, 0x00),
+                        (0x01, 0x00),
+                        (0x0F, 0x00),
+                        (0xFF, 0x44),
+                        ]:
+            tests = [
+                [ [ B(X) ], [ 0x04 ], 4, [ (PC==0x01), (B == (X+1)&0xFF), (F==f) ], "INC B (0x{:X} + 1)".format(X) ],
+                [ [ C(X) ], [ 0x0C ], 4, [ (PC==0x01), (C == (X+1)&0xFF), (F==f) ], "INC C (0x{:X} + 1)".format(X) ],
+                [ [ D(X) ], [ 0x14 ], 4, [ (PC==0x01), (D == (X+1)&0xFF), (F==f) ], "INC D (0x{:X} + 1)".format(X) ],
+                [ [ E(X) ], [ 0x1C ], 4, [ (PC==0x01), (E == (X+1)&0xFF), (F==f) ], "INC E (0x{:X} + 1)".format(X) ],
+                [ [ H(X) ], [ 0x24 ], 4, [ (PC==0x01), (H == (X+1)&0xFF), (F==f) ], "INC H (0x{:X} + 1)".format(X) ],
+                [ [ L(X) ], [ 0x2C ], 4, [ (PC==0x01), (L == (X+1)&0xFF), (F==f) ], "INC L (0x{:X} + 1)".format(X) ],
+                [ [ M(0x1BBC,X), HL(0x1BBC) ], [ 0x34 ], 12, [ (PC==0x01), (M[0x1BBC] == (X+1)&0xFF), (F==f) ], "INC (HL) (0x{:X} + 1)".format(X) ],
+                [ [ A(X) ], [ 0x3C ], 4, [ (PC==0x01), (A == (X+1)&0xFF), (F==f) ], "INC A (0x{:X} + 1)".format(X) ],
+                [ [ M(0x1BBC,X), IX(0x1BB0) ], [ 0xDD, 0x34, 0x0C ], 23, [ (PC==0x03), (M[0x1BBC] == (X+1)&0xFF), (F==f) ], "INC (IX+0CH) (0x{:X} + 1)".format(X) ],
+                [ [ M(0x1BBC,X), IY(0x1BB0) ], [ 0xFD, 0x34, 0x0C ], 23, [ (PC==0x03), (M[0x1BBC] == (X+1)&0xFF), (F==f) ], "INC (IY+0CH) (0x{:X} + 1)".format(X) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
