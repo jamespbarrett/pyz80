@@ -861,16 +861,16 @@ class TestInstructionSet(unittest.TestCase):
                           (0x0A, 0xFF, 0x1C),
                           (0x0F, 0xF0, 0x54) ]:
             tests = [
-                [ [ A(X), B(Y) ], [ 0xA0 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND B ({}&{})".format(X,Y) ],
-                [ [ A(X), C(Y) ], [ 0xA1 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND C ({}&{})".format(X,Y) ],
-                [ [ A(X), D(Y) ], [ 0xA2 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND D ({}&{})".format(X,Y) ],
-                [ [ A(X), E(Y) ], [ 0xA3 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND E ({}&{})".format(X,Y) ],
-                [ [ A(X), H(Y) ], [ 0xA4 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND H ({}&{})".format(X,Y) ],
-                [ [ A(X), L(Y) ], [ 0xA5 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND L ({}&{})".format(X,Y) ],
-                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xA6 ], 7, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND (HL) ({}&{})".format(X,Y) ],
-                [ [ A(X) ], [ 0xE6, Y ], 7, [ (PC==0x02), (A == (X&Y)), (F==f) ], "AND {} ({}&{})".format(Y,X,Y) ],
-                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xA6, 0x0C ], 19, [ (PC==0x03), (A == (X&Y)), (F==f) ], "AND (IX+0CH) ({}&{})".format(X,Y) ],
-                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xA6, 0x0C ], 19, [ (PC==0x03), (A == (X&Y)), (F==f) ], "AND (IY+0CH) ({}&{})".format(X,Y) ],
+                [ [ A(X), B(Y) ], [ 0xA0 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND B (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), C(Y) ], [ 0xA1 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND C (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), D(Y) ], [ 0xA2 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND D (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), E(Y) ], [ 0xA3 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND E (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), H(Y) ], [ 0xA4 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND H (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), L(Y) ], [ 0xA5 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND L (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xA6 ], 7, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND (HL) (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X) ], [ 0xE6, Y ], 7, [ (PC==0x02), (A == (X&Y)), (F==f) ], "AND 0x{:X} (0x{:X}&0x{:X})".format(Y,X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xA6, 0x0C ], 19, [ (PC==0x03), (A == (X&Y)), (F==f) ], "AND (IX+0CH) (0x{:X}&0x{:X})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xA6, 0x0C ], 19, [ (PC==0x03), (A == (X&Y)), (F==f) ], "AND (IY+0CH) (0x{:X}&0x{:X})".format(X,Y) ],
                 ]
 
             for (pre, instructions, t_cycles, post, name) in tests:
@@ -879,7 +879,7 @@ class TestInstructionSet(unittest.TestCase):
         for (X, f) in [ (0x11, 0x14),
                         (0x0A, 0x1C), ]:
             tests = [
-                [ [ A(X) ], [ 0xA7 ], 4, [ (PC==0x01), (A == X), (F==f) ], "AND A ({}&{})".format(X,X) ],
+                [ [ A(X) ], [ 0xA7 ], 4, [ (PC==0x01), (A == X), (F==f) ], "AND A (0x{:X}&0x{:X})".format(X,X) ],
                 ]
 
             for (pre, instructions, t_cycles, post, name) in tests:
@@ -891,16 +891,16 @@ class TestInstructionSet(unittest.TestCase):
                           (0x0A, 0xFF, 0xA4),
                           (0x0F, 0xF0, 0xAC) ]:
             tests = [
-                [ [ A(X), B(Y) ], [ 0xA8 ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR B ({}^{})".format(X,Y) ],
-                [ [ A(X), C(Y) ], [ 0xA9 ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR C ({}^{})".format(X,Y) ],
-                [ [ A(X), D(Y) ], [ 0xAA ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR D ({}^{})".format(X,Y) ],
-                [ [ A(X), E(Y) ], [ 0xAB ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR E ({}^{})".format(X,Y) ],
-                [ [ A(X), H(Y) ], [ 0xAC ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR H ({}^{})".format(X,Y) ],
-                [ [ A(X), L(Y) ], [ 0xAD ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR L ({}^{})".format(X,Y) ],
-                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xAE ], 7, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR (HL) ({}^{})".format(X,Y) ],
-                [ [ A(X) ], [ 0xEE, Y ], 7, [ (PC==0x02), (A == (X^Y)), (F==f) ], "XOR {} ({}^{})".format(Y,X,Y) ],
-                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xAE, 0x0C ], 19, [ (PC==0x03), (A == (X^Y)), (F==f) ], "XOR (IX+0CH) ({}^{})".format(X,Y) ],
-                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xAE, 0x0C ], 19, [ (PC==0x03), (A == (X^Y)), (F==f) ], "XOR (IY+0CH) ({}^{})".format(X,Y) ],
+                [ [ A(X), B(Y) ], [ 0xA8 ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR B (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), C(Y) ], [ 0xA9 ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR C (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), D(Y) ], [ 0xAA ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR D (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), E(Y) ], [ 0xAB ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR E (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), H(Y) ], [ 0xAC ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR H (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), L(Y) ], [ 0xAD ], 4, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR L (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xAE ], 7, [ (PC==0x01), (A == (X^Y)), (F==f) ], "XOR (HL) (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X) ], [ 0xEE, Y ], 7, [ (PC==0x02), (A == (X^Y)), (F==f) ], "XOR 0x{:X} (0x{:X}^0x{:X})".format(Y,X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xAE, 0x0C ], 19, [ (PC==0x03), (A == (X^Y)), (F==f) ], "XOR (IX+0CH) (0x{:X}^0x{:X})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xAE, 0x0C ], 19, [ (PC==0x03), (A == (X^Y)), (F==f) ], "XOR (IY+0CH) (0x{:X}^0x{:X})".format(X,Y) ],
                 ]
 
             for (pre, instructions, t_cycles, post, name) in tests:
@@ -909,7 +909,37 @@ class TestInstructionSet(unittest.TestCase):
         for X in [ 0x11,
                    0x0A, ]:
             tests = [
-                [ [ A(X) ], [ 0xAF ], 4, [ (PC==0x01), (A == 0x00), (F==0x44) ], "XOR A ({}^{})".format(X,X) ],
+                [ [ A(X) ], [ 0xAF ], 4, [ (PC==0x01), (A == 0x00), (F==0x44) ], "XOR A (0x{:X}^0x{:X})".format(X,X) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_or(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        for (X,Y, f) in [ (0x11, 0x45, 0x04),
+                          (0x0A, 0xFF, 0xAC),
+                          (0x0F, 0xF0, 0xAC) ]:
+            tests = [
+                [ [ A(X), B(Y) ], [ 0xB0 ], 4, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR B (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), C(Y) ], [ 0xB1 ], 4, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR C (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), D(Y) ], [ 0xB2 ], 4, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR D (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), E(Y) ], [ 0xB3 ], 4, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR E (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), H(Y) ], [ 0xB4 ], 4, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR H (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), L(Y) ], [ 0xB5 ], 4, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR L (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xB6 ], 7, [ (PC==0x01), (A == (X|Y)), (F==f) ], "OR (HL) (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X) ], [ 0xF6, Y ], 7, [ (PC==0x02), (A == (X|Y)), (F==f) ], "OR 0x{:X} (0x{:X}|0x{:X})".format(Y,X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xB6, 0x0C ], 19, [ (PC==0x03), (A == (X|Y)), (F==f) ], "OR (IX+0CH) (0x{:X}|0x{:X})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xB6, 0x0C ], 19, [ (PC==0x03), (A == (X|Y)), (F==f) ], "OR (IY+0CH) (0x{:X}|0x{:X})".format(X,Y) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+        for (X, f) in [ (0x11, 0x04),
+                        (0x0A, 0x0C), ]:
+            tests = [
+                [ [ A(X) ], [ 0xB7 ], 4, [ (PC==0x01), (A == X), (F==f) ], "OR A (0x{:X}|0x{:X})".format(X,X) ],
                 ]
 
             for (pre, instructions, t_cycles, post, name) in tests:
