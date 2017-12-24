@@ -783,23 +783,32 @@ INSTRUCTION_STATES = {
     0x87 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.A)&0xF) > 0xF) else 0),
                  set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.A, key="value"),
                  LDr('A') ],        [] ),                                                             # ADD A
-    0x88 : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.B + state.cpu.reg.getflag('C'), key="value"),
+    0x88 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.B)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.B + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC B
-    0x89 : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.C + state.cpu.reg.getflag('C'), key="value"),
+    0x89 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.C)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.C + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC C
-    0x8A : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.D + state.cpu.reg.getflag('C'), key="value"),
+    0x8A : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.D)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.D + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC D
-    0x8B : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.E + state.cpu.reg.getflag('C'), key="value"),
+    0x8B : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.E)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.E + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC E
-    0x8C : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.H + state.cpu.reg.getflag('C'), key="value"),
+    0x8C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.H)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.H + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC H
-    0x8D : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.L + state.cpu.reg.getflag('C'), key="value"),
+    0x8D : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.L)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.L + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC L
     0x8E : (0, [],                  [ MR(indirect="HL",
-                                        action=set_flags("SZ5H3V0C",
+                                        action=do_each(
+                                            force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)+(v&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                                            set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
-                                                        dest="A")) ] ),                               # ADC (HL)
-    0x8F : (0, [ set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.A + state.cpu.reg.getflag('C'), key="value"),
+                                                        dest="A"))) ] ),                               # ADC (HL)
+    0x8F : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+((state.cpu.reg.A)&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                 set_flags("SZ5H3V0C", value=lambda state : state.cpu.reg.A + state.cpu.reg.A + state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # ADC A
     0x90 : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.B, key="value"),
                  LDr('A') ],        [] ),                                                             # SUB B
@@ -917,9 +926,10 @@ INSTRUCTION_STATES = {
                                                 set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v,
                                                         dest="A"))) ] ),                              # ADD n
-    0xCE : (0, [],                  [ OD(action=set_flags("SZ5H3V0C",
+    0xCE : (0, [],                  [ OD(action=do_each(force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)+(v&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                                                        set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
-                                                        dest="A")) ] ),                               # ADC n
+                                                        dest="A"))) ] ),                              # ADC n
     0xD1 : (0, [],                  [ SR(), SR(action=LDr("DE")) ]),                                  # POP DE
     0xD5 : (1, [],                  [ SW(source="D"), SW(source="E") ]),                              # PUSH DE
     0xD6 : (0, [],                  [ OD(action=set_flags("SZ5H3V1C",
@@ -1030,7 +1040,7 @@ INSTRUCTION_STATES = {
     (0xDD, 0x8E) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IX') }),
                                             MR(action=do_each(
-#                                                force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)+(v&0xF) > 0xF) else 0),
+                                                force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)+(v&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
                                                 set_flags("SZ5H3V0C",
                                                 value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
                                                 dest="A"))) ] ),                                      # ADC (IX+d)
@@ -1234,9 +1244,11 @@ INSTRUCTION_STATES = {
                                                 dest="A"))) ] ),                                      # ADD (IY+d)
     (0xFD, 0x8E) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IY') }),
-                                            MR(action=set_flags("SZ5H3V0C",
-                                               value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
-                                               dest="A")) ] ),                                        # ADC (IY+d)
+                                            MR(action=do_each(
+                                                force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)+(v&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
+                                                set_flags("SZ5H3V0C",
+                                                value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
+                                                dest="A"))) ] ),                                      # ADC (IY+d)
     (0xFD, 0x96) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IY') }),
                                             MR(action=set_flags("SZ5H3V1C",
