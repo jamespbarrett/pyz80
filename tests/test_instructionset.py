@@ -854,3 +854,33 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_and(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        for (X,Y, f) in [ (0x11, 0x45, 0x10),
+                          (0x0A, 0xFF, 0x1C),
+                          (0x0F, 0xF0, 0x54) ]:
+            tests = [
+                [ [ A(X), B(Y) ], [ 0xA0 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND B ({}&{})".format(X,Y) ],
+                [ [ A(X), C(Y) ], [ 0xA1 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND C ({}&{})".format(X,Y) ],
+                [ [ A(X), D(Y) ], [ 0xA2 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND D ({}&{})".format(X,Y) ],
+                [ [ A(X), E(Y) ], [ 0xA3 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND E ({}&{})".format(X,Y) ],
+                [ [ A(X), H(Y) ], [ 0xA4 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND H ({}&{})".format(X,Y) ],
+                [ [ A(X), L(Y) ], [ 0xA5 ], 4, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND L ({}&{})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), HL(0x1BBC) ], [ 0xA6 ], 7, [ (PC==0x01), (A == (X&Y)), (F==f) ], "AND (HL) ({}&{})".format(X,Y) ],
+                [ [ A(X) ], [ 0xE6, Y ], 7, [ (PC==0x02), (A == (X&Y)), (F==f) ], "AND {} ({}&{})".format(Y,X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IX(0x1BB0) ], [ 0xDD, 0xA6, 0x0C ], 19, [ (PC==0x03), (A == (X&Y)), (F==f) ], "AND (IX+0CH) ({}&{})".format(X,Y) ],
+                [ [ A(X), M(0x1BBC,Y), IY(0x1BB0) ], [ 0xFD, 0xA6, 0x0C ], 19, [ (PC==0x03), (A == (X&Y)), (F==f) ], "AND (IY+0CH) ({}&{})".format(X,Y) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+        for (X, f) in [ (0x11, 0x14),
+                        (0x0A, 0x1C), ]:
+            tests = [
+                [ [ A(X) ], [ 0xA7 ], 4, [ (PC==0x01), (A == X), (F==f) ], "AND A ({}&{})".format(X,X) ],
+                ]
+
+            for (pre, instructions, t_cycles, post, name) in tests:
+                self.execute_instructions(pre, instructions, t_cycles, post, name)
