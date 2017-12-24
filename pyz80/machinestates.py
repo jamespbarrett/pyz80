@@ -12,10 +12,6 @@ class UnrecognisedInstructionError(Exception):
 
 # Actions which can be triggered at end of machine states
 
-def MB():
-    """This can be set as the action for an OPCODE that's actually the first byte of a multibyte sequence."""
-    raise Exception("Tried to execute the special MB action used to signal multibyte OPCODES")
-
 def JP(state, target, *args):
     """Jump to the second parameter (an address)"""
     state.cpu.reg.PC = target
@@ -210,6 +206,36 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None, dest=None)
             state.kwargs[key] = d
         if dest is not None:
             setattr(state.cpu.reg, dest, d)
+    return _inner
+
+def daa():
+    def _inner(state, *args):
+        A = state.cpu.reg.A
+        C = (state.cpu.reg.F >> 0)&0x1
+        H = (state.cpu.reg.F >> 4)&0x1
+        N = (state.cpu.reg.F >> 1)&0x1
+
+        if N == 0:
+            F = 0
+            if A&0xF > 9 or H != 0:
+                A += 0x06
+            if (A>>4) > 9 or C != 0:
+                A += 0x60
+                F = 0x01
+        else:
+            F = 0
+            if (A&0xF) > 9 or H != 0:
+                A -= 0x06
+            if (A>>4) > 9 or C != 0:
+                A -= 0x60
+                F = 0x01
+        A &= 0xFF
+        F |= (N << 1)
+        F |= (A&0xA8)
+        if A == 0x00:
+            F |= 0x40
+        state.cpu.reg.A = A
+        state.cpu.reg.F = F
     return _inner
 
 # Machine States
@@ -666,6 +692,7 @@ INSTRUCTION_STATES = {
                  set_flags("SZ5H3V1-", value=lambda state : state.cpu.reg.H - 1, key="value"), LDr('H') ],
                                     [] ),                                                             # DEC H
     0x26 : (0, [],                  [ OD(action=LDr('H')), ]),                                        # LD H,n
+    0x27 : (0, [ daa() ],                  []),                                                       # DAA
     0x2A : (0, [],                  [ OD(key="address"),
                                       OD(key="address", compound=high_after_low),
                                       MR(action=LDr('L')), MR(action=LDr('H')) ]),                    # LD HL,(nn)

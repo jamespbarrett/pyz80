@@ -811,3 +811,24 @@ class TestInstructionSet(unittest.TestCase):
 
             for (pre, instructions, t_cycles, post, name) in tests:
                 self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_daa(self):
+        def bcd(n):
+            return (((int(n/10)%10) << 4) + (n%10))&0xFF
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for x in range(0,100):
+            for y in range(0,100):
+                X = bcd(x)
+                Y = bcd(y)
+                h = 1 if ((x%10) + (y%10)) > 0xF else 0
+                h_ = 1 if ((x%10) - (y%10)) < 0 else 0
+                c = 1 if (X + Y) > 0xFF else 0
+                c_ = 1 if (X - Y) < 0 else 0
+                tests += [
+                    [ [ A((X + Y)&0xFF), F((h << 4) + c) ],          [ 0x27 ], 4, [ (PC==0x01), (A == bcd(x+y)) ], "DAA (after {} + {})".format(x,y) ],
+                    [ [ A((X - Y)&0xFF), F((h_ << 4) + c_ + 0x02) ], [ 0x27 ], 4, [ (PC==0x01), (A == bcd(x-y)) ], "DAA (after {} - {})".format(x,y) ],
+                ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
