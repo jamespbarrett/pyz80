@@ -577,9 +577,9 @@ class TestInstructionSet(unittest.TestCase):
     def test_sub(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         for (X, Y, f) in [ (0x0A, 0xF5, 0x07),
-                            (0x40, 0xAF, 0x83),
-                            (0xFF, 0xFE, 0x02),
-                            (0xFF, 0xFF, 0x42) ]:
+                           (0x40, 0xAF, 0x93),
+                           (0xFF, 0xFE, 0x02),
+                           (0xFF, 0xFF, 0x42) ]:
             tests = [
                 [ [ A(X), B(Y) ], [ 0x90 ], 4, [ (PC==0x01), (A == (X-Y)&0xFF), (F==f) ], "SUB B (0x{:X} - 0x{:X})".format(X,Y) ],
                 [ [ A(X), C(Y) ], [ 0x91 ], 4, [ (PC==0x01), (A == (X-Y)&0xFF), (F==f) ], "SUB C (0x{:X} - 0x{:X})".format(X,Y) ],
@@ -869,10 +869,10 @@ class TestInstructionSet(unittest.TestCase):
 
     def test_dec(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
-        for (X, f) in [ (0x00, 0xAA),
+        for (X, f) in [ (0x00, 0xBA),
                         (0x01, 0x42),
                         (0x02, 0x02),
-                        (0x10, 0x0A),
+                        (0x10, 0x1A),
                         ]:
             tests = [
                 [ [ B(X) ], [ 0x05 ], 4, [ (PC==0x01), (B == (X-1)&0xFF), (F==f) ], "DEC B (0x{:X} - 1)".format(X) ],
