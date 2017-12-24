@@ -843,25 +843,35 @@ INSTRUCTION_STATES = {
                                             set_flags("SZ5H3V1C",
                                                         value=lambda state, v : state.cpu.reg.A - v,
                                                         dest="A"))) ] ),                               # SUB (HL)
-    0x97 : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.A, key="value"),
+    0x97 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.A)&0xF) < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.A, key="value"),
                  LDr('A') ],        [] ),                                                             # SUB A
-    0x98 : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.B - state.cpu.reg.getflag('C'), key="value"),
+    0x98 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.B)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.B - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC B
-    0x99 : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.C - state.cpu.reg.getflag('C'), key="value"),
+    0x99 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.C)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.C - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC C
-    0x9A : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.D - state.cpu.reg.getflag('C'), key="value"),
+    0x9A : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.D)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.D - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC D
-    0x9B : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.E - state.cpu.reg.getflag('C'), key="value"),
+    0x9B : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.E)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.E - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC E
-    0x9C : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.H - state.cpu.reg.getflag('C'), key="value"),
+    0x9C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.H)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.H - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC H
-    0x9D : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.L - state.cpu.reg.getflag('C'), key="value"),
+    0x9D : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.L)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.L - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC L
     0x9E : (0, [],                  [ MR(indirect="HL",
-                                        action=set_flags("SZ5H3V1C",
+                                        action=do_each(
+                                            force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)-(v&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                                            set_flags("SZ5H3V1C",
                                                         value=lambda state, v : state.cpu.reg.A - v - state.cpu.reg.getflag('C'),
-                                                        dest="A")) ] ),                               # SBC (HL)
-    0x9F : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.A - state.cpu.reg.getflag('C'), key="value"),
+                                                        dest="A"))) ] ),                               # SBC (HL)
+    0x9F : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)-((state.cpu.reg.A)&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                 set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.A - state.cpu.reg.getflag('C'), key="value"),
                  LDr('A') ],        [] ),                                                             # SBC A
     0xA0 : (0, [ set_flags("SZ513P00", value=lambda state : state.cpu.reg.A & state.cpu.reg.B, key="value"),
                  LDr('A') ],        [] ),                                                             # AND B
@@ -954,9 +964,11 @@ INSTRUCTION_STATES = {
                                                 set_flags("SZ5H3V1C",
                                                         value=lambda state, v : state.cpu.reg.A - v,
                                                         dest="A"))) ] ),                               # SUB n
-    0xDE : (0, [],                  [ OD(action=set_flags("SZ5H3V1C",
+    0xDE : (0, [],                  [ OD(action=do_each(
+                                            force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)-(v&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                                            set_flags("SZ5H3V1C",
                                                         value=lambda state, v : state.cpu.reg.A - v - state.cpu.reg.getflag('C'),
-                                                        dest="A")) ] ),                               # SBC n
+                                                        dest="A"))) ] ),                               # SBC n
     0xD9 : (0, [ EXX() ],           []),                                                              # EXX
     0xE1 : (0, [],                  [ SR(), SR(action=LDr("HL")) ]),                                  # POP HL
     0xE3 : (0, [ RRr('H','H'), RRr('L','L') ],  [ SR(), SR(action=LDr("HL"), extra=1),
@@ -1074,9 +1086,11 @@ INSTRUCTION_STATES = {
                                                dest="A"))) ] ),                                        # SUB (IX+d)
     (0xDD, 0x9E) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IX') }),
-                                            MR(action=set_flags("SZ5H3V1C",
+                                            MR(action=do_each(
+                                            force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)-(v&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                                            set_flags("SZ5H3V1C",
                                                value=lambda state, v : state.cpu.reg.A - v - state.cpu.reg.getflag('C'),
-                                               dest="A")) ] ),                                        # SBC (IX+d)
+                                               dest="A"))) ] ),                                        # SBC (IX+d)
     (0xDD, 0xA6) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IX') }),
                                             MR(action=set_flags("SZ513P00",
@@ -1283,9 +1297,11 @@ INSTRUCTION_STATES = {
                                                dest="A"))) ] ),                                        # SUB (IY+d)
     (0xFD, 0x9E) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IY') }),
-                                            MR(action=set_flags("SZ5H3V1C",
+                                            MR(action=do_each(
+                                            force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)-(v&0xF) - state.cpu.reg.getflag('C') < 0x0) else 0),
+                                            set_flags("SZ5H3V1C",
                                                value=lambda state, v : state.cpu.reg.A - v - state.cpu.reg.getflag('C'),
-                                               dest="A")) ] ),                                        # SBC (IY+d)
+                                               dest="A"))) ] ),                                        # SBC (IY+d)
     (0xFD, 0xA6) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IY') }),
                                             MR(action=set_flags("SZ513P00",
