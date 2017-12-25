@@ -843,3 +843,14 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_neg(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for X in range(0,256):
+            tests += [
+                [ [ A(X) ], [ 0xED, 0x44 ], 8, [ (PC==0x02), (A == (256 - X)&0xFF) ], "NEG (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)

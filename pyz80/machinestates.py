@@ -1154,6 +1154,8 @@ INSTRUCTION_STATES = {
                                             OD(key="address",
                                             compound=high_after_low),
                                             MW(source="C"), MW(source="B") ]),                        # LD (nn),BC
+    (0xED, 0x44) : (0, [ set_flags("SZ513V11", value=lambda state : (-state.cpu.reg.A)&0xFF, dest='A') ],
+                                         []),                                                         # NEG
     (0xED, 0x47) : (0, [LDrs('I', 'A')], []),                                                         # LD I,A
     (0xED, 0x4B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
