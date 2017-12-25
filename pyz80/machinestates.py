@@ -737,6 +737,8 @@ INSTRUCTION_STATES = {
     0x3A : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MR(action=LDr("A")) ]),                                     # LD A,(nn)
     0x3E : (0, [],                  [ OD(action=LDr('A')), ]),                                        # LD A,n
+    0x3F : (0, [ LDr('F', value=lambda state : (state.cpu.reg.F&0xEC)|(~state.cpu.reg.F&0x11)) ],
+                                    [] ),                                                             # CCF
     0x40 : (0, [ LDrs('B', 'B'), ], [] ),                                                             # LD B,B
     0x41 : (0, [ LDrs('B', 'C'), ], [] ),                                                             # LD B,C
     0x42 : (0, [ LDrs('B', 'D'), ], [] ),                                                             # LD B,D

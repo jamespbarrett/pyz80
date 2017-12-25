@@ -854,3 +854,25 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ccf(self):
+        def ccf(x):
+            if x&0x01:
+                x &= 0xFE
+            else:
+                x |= 0x01
+            if x&0x10:
+                x &= 0xEF
+            else:
+                x |= 0x10
+            x &= 0xFD
+            return x
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for X in range(0,256):
+            tests += [
+                [ [ F(X) ], [ 0x3F ], 4, [ (PC==0x01), (F == ccf(X)) ], "CCF (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
