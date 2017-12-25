@@ -728,6 +728,8 @@ INSTRUCTION_STATES = {
                                                         key="value"))),
                                       MW(indirect="HL" )] ),                                          # DEC (HL)
     0x36 : (0, [],                  [ OD(), MW(indirect="HL") ]),                                     # LD (HL),n
+    0x37 : (0, [ LDr('F', value=lambda state : (state.cpu.reg.F&0xC4)|(state.cpu.reg.A&0x28)|(0x01)) ],
+                                    [] ),                                                             # SCF
     0x3C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.A + 1, key="value"), LDr('A') ],
                                     [] ),                                                             # INC A

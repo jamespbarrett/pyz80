@@ -876,3 +876,15 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_scf(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for X in range(0,256):
+            for Y in [ (1 << n) | (1 << m) for n,m in zip(range(0,8), range(0,8)) ]:
+                tests += [
+                    [ [ F(X), A(Y) ], [ 0x37 ], 4, [ (PC==0x01), (F == ((X&0xC4) | (Y&0x28) | 0x01)) ], "SCF (of 0x{:X})".format(X) ],
+                ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
