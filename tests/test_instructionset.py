@@ -500,7 +500,7 @@ class TestInstructionSet(unittest.TestCase):
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
 
-    def test_add(self):
+    def test_add8(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         for (X,Y,f) in [ (0x0A, 0x0B, 0x10),
                          (0x40, 0x51, 0x84),
@@ -533,7 +533,7 @@ class TestInstructionSet(unittest.TestCase):
             for (pre, instructions, t_cycles, post, name) in tests:
                 self.execute_instructions(pre, instructions, t_cycles, post, name)
 
-    def test_adc(self):
+    def test_adc8(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         for (X,Y,f,c) in [ (0x0A, 0x0B, 0x10, 0),
                            (0x0A, 0x0A, 0x10, 1),
@@ -768,12 +768,13 @@ class TestInstructionSet(unittest.TestCase):
 
     def test_inc(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
         for (X, f) in [ (0x00, 0x00),
                         (0x01, 0x00),
                         (0x0F, 0x10),
                         (0xFF, 0x54),
                         ]:
-            tests = [
+            tests += [
                 [ [ B(X) ], [ 0x04 ], 4, [ (PC==0x01), (B == (X+1)&0xFF), (F==f) ], "INC B (0x{:X} + 1)".format(X) ],
                 [ [ C(X) ], [ 0x0C ], 4, [ (PC==0x01), (C == (X+1)&0xFF), (F==f) ], "INC C (0x{:X} + 1)".format(X) ],
                 [ [ D(X) ], [ 0x14 ], 4, [ (PC==0x01), (D == (X+1)&0xFF), (F==f) ], "INC D (0x{:X} + 1)".format(X) ],
@@ -786,17 +787,33 @@ class TestInstructionSet(unittest.TestCase):
                 [ [ M(0x1BBC,X), IY(0x1BB0) ], [ 0xFD, 0x34, 0x0C ], 23, [ (PC==0x03), (M[0x1BBC] == (X+1)&0xFF), (F==f) ], "INC (IY+0CH) (0x{:X} + 1)".format(X) ],
                 ]
 
-            for (pre, instructions, t_cycles, post, name) in tests:
-                self.execute_instructions(pre, instructions, t_cycles, post, name)
+        for X in [ 0x0000,
+                   0x0001,
+                   0x00FF,
+                   0x0100,
+                   0xFF00,
+                   0xFFFF ]:
+            tests += [
+                [ [ BC(X) ], [ 0x03 ], 4, [ (PC==0x01), (BC == (X+1)&0xFFFF) ], "INC BC (0x{:X} + 1)".format(X) ],
+                [ [ DE(X) ], [ 0x13 ], 4, [ (PC==0x01), (DE == (X+1)&0xFFFF) ], "INC DE (0x{:X} + 1)".format(X) ],
+                [ [ HL(X) ], [ 0x23 ], 4, [ (PC==0x01), (HL == (X+1)&0xFFFF) ], "INC HL (0x{:X} + 1)".format(X) ],
+                [ [ SP(X) ], [ 0x33 ], 4, [ (PC==0x01), (SP == (X+1)&0xFFFF) ], "INC SP (0x{:X} + 1)".format(X) ],
+                [ [ IX(X) ], [ 0xDD, 0x23 ], 8, [ (PC==0x02), (IX == (X+1)&0xFFFF) ], "INC IX (0x{:X} + 1)".format(X) ],
+                [ [ IY(X) ], [ 0xFD, 0x23 ], 8, [ (PC==0x02), (IY == (X+1)&0xFFFF) ], "INC IY (0x{:X} + 1)".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
 
     def test_dec(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
         for (X, f) in [ (0x00, 0xBA),
                         (0x01, 0x42),
                         (0x02, 0x02),
                         (0x10, 0x1A),
                         ]:
-            tests = [
+            tests += [
                 [ [ B(X) ], [ 0x05 ], 4, [ (PC==0x01), (B == (X-1)&0xFF), (F==f) ], "DEC B (0x{:X} - 1)".format(X) ],
                 [ [ C(X) ], [ 0x0D ], 4, [ (PC==0x01), (C == (X-1)&0xFF), (F==f) ], "DEC C (0x{:X} - 1)".format(X) ],
                 [ [ D(X) ], [ 0x15 ], 4, [ (PC==0x01), (D == (X-1)&0xFF), (F==f) ], "DEC D (0x{:X} - 1)".format(X) ],
@@ -809,8 +826,23 @@ class TestInstructionSet(unittest.TestCase):
                 [ [ M(0x1BBC,X), IY(0x1BB0) ], [ 0xFD, 0x35, 0x0C ], 23, [ (PC==0x03), (M[0x1BBC] == (X-1)&0xFF), (F==f) ], "DEC (IY+0CH) (0x{:X} - 1)".format(X) ],
                 ]
 
-            for (pre, instructions, t_cycles, post, name) in tests:
-                self.execute_instructions(pre, instructions, t_cycles, post, name)
+        for X in [ 0x0000,
+                    0x0001,
+                    0x00FF,
+                    0x0100,
+                    0xFF00,
+                    0xFFFF ]:
+            tests += [
+                [ [ BC(X) ], [ 0x0B ], 4, [ (PC==0x01), (BC == (X-1)&0xFFFF) ], "DEC BC (0x{:X} - 1)".format(X) ],
+                [ [ DE(X) ], [ 0x1B ], 4, [ (PC==0x01), (DE == (X-1)&0xFFFF) ], "DEC DE (0x{:X} - 1)".format(X) ],
+                [ [ HL(X) ], [ 0x2B ], 4, [ (PC==0x01), (HL == (X-1)&0xFFFF) ], "DEC HL (0x{:X} - 1)".format(X) ],
+                [ [ SP(X) ], [ 0x3B ], 4, [ (PC==0x01), (SP == (X-1)&0xFFFF) ], "DEC SP (0x{:X} - 1)".format(X) ],
+                [ [ IX(X) ], [ 0xDD, 0x2B ], 8, [ (PC==0x02), (IX == (X-1)&0xFFFF) ], "DEC IX (0x{:X} - 1)".format(X) ],
+                [ [ IY(X) ], [ 0xFD, 0x2B ], 8, [ (PC==0x02), (IY == (X-1)&0xFFFF) ], "DEC IY (0x{:X} - 1)".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
 
     def test_daa(self):
         def bcd(n):
@@ -885,6 +917,130 @@ class TestInstructionSet(unittest.TestCase):
                 tests += [
                     [ [ F(X), A(Y) ], [ 0x37 ], 4, [ (PC==0x01), (F == ((X&0xC4) | (Y&0x28) | 0x01)) ], "SCF (of 0x{:X})".format(X) ],
                 ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_add16(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for (X,Y,f) in [ (0x000A, 0x000B, 0x00),
+                         (0x0040, 0x0051, 0x00),
+                         (0x00FF, 0x0002, 0x00),
+                         (0x00FF, 0x0001, 0x00),
+                         (0x0100, 0x0001, 0x00),
+                         (0xFF00, 0x0100, 0x11),
+                         (0xFFFF, 0x0001, 0x11),
+                         ]:
+            tests += [
+                [ [ BC(X), HL(Y) ], [ 0x09 ],       11, [ (PC==0x01), (HL == (X+Y)&0xFFFF), (F==f) ], "ADD HL,BC (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ DE(X), HL(Y) ], [ 0x19 ],       11, [ (PC==0x01), (HL == (X+Y)&0xFFFF), (F==f) ], "ADD HL,DE (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ SP(X), HL(Y) ], [ 0x39 ],       11, [ (PC==0x01), (HL == (X+Y)&0xFFFF), (F==f) ], "ADD HL,SP (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ BC(X), IX(Y) ], [ 0xDD, 0x09 ], 15, [ (PC==0x02), (IX == (X+Y)&0xFFFF), (F==f) ], "ADD IX,BC (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ DE(X), IX(Y) ], [ 0xDD, 0x19 ], 15, [ (PC==0x02), (IX == (X+Y)&0xFFFF), (F==f) ], "ADD IX,DE (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ SP(X), IX(Y) ], [ 0xDD, 0x39 ], 15, [ (PC==0x02), (IX == (X+Y)&0xFFFF), (F==f) ], "ADD IX,SP (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ BC(X), IY(Y) ], [ 0xFD, 0x09 ], 15, [ (PC==0x02), (IY == (X+Y)&0xFFFF), (F==f) ], "ADD IY,BC (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ DE(X), IY(Y) ], [ 0xFD, 0x19 ], 15, [ (PC==0x02), (IY == (X+Y)&0xFFFF), (F==f) ], "ADD IY,DE (0x{:X} + 0x{:X})".format(X,Y) ],
+                [ [ SP(X), IY(Y) ], [ 0xFD, 0x39 ], 15, [ (PC==0x02), (IY == (X+Y)&0xFFFF), (F==f) ], "ADD IY,SP (0x{:X} + 0x{:X})".format(X,Y) ],
+            ]
+
+        for (X,f) in [ (0x000A, 0x00),
+                       (0x0040, 0x00),
+                       (0x00FF, 0x00),
+                       (0x0100, 0x00),
+                       (0xFF00, 0x39),
+                       (0xFFFF, 0x39) ]:
+            tests += [
+                [ [ HL(X) ], [ 0x29 ],       11, [ (PC==0x01), (HL == (X+X)&0xFFFF), (F==f) ], "ADD HL,HL (0x{:X} + 0x{:X})".format(X,X) ],
+                [ [ IX(X) ], [ 0xDD, 0x29 ], 15, [ (PC==0x02), (IX == (X+X)&0xFFFF), (F==f) ], "ADD IX,IX (0x{:X} + 0x{:X})".format(X,X) ],
+                [ [ IY(X) ], [ 0xFD, 0x29 ], 15, [ (PC==0x02), (IY == (X+X)&0xFFFF), (F==f) ], "ADD IY,IY (0x{:X} + 0x{:X})".format(X,X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_adc16(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for (X,Y,c,f) in [ (0x000A, 0x000B, 0, 0x00),
+                           (0x0040, 0x0051, 0, 0x00),
+                           (0x00FF, 0x0002, 0, 0x00),
+                           (0x00FF, 0x0001, 0, 0x00),
+                           (0x0100, 0x0001, 0, 0x00),
+                           (0xFF00, 0x0100, 0, 0x55),
+                           (0xFFFF, 0x0001, 0, 0x55),
+                           (0x000A, 0x000A, 1, 0x00),
+                           (0x0040, 0x0050, 1, 0x00),
+                           (0x00FF, 0x0001, 1, 0x00),
+                           (0x00FF, 0x0000, 1, 0x00),
+                           (0x0100, 0x0000, 1, 0x00),
+                           (0xFF00, 0x00FF, 1, 0x55),
+                           (0xFFFF, 0x0000, 1, 0x55),
+                         ]:
+            tests += [
+                [ [ BC(X), HL(Y), F(c) ], [ 0xED, 0x4A ], 15, [ (PC==0x02), (HL == (X+Y+c)&0xFFFF), (F==f) ], "ADC HL,BC (0x{:X} + 0x{:X} + {})".format(X,Y,c) ],
+                [ [ DE(X), HL(Y), F(c) ], [ 0xED, 0x5A ], 15, [ (PC==0x02), (HL == (X+Y+c)&0xFFFF), (F==f) ], "ADC HL,DE (0x{:X} + 0x{:X} + {})".format(X,Y,c) ],
+                [ [ SP(X), HL(Y), F(c) ], [ 0xED, 0x7A ], 15, [ (PC==0x02), (HL == (X+Y+c)&0xFFFF), (F==f) ], "ADC HL,SP (0x{:X} + 0x{:X} + {})".format(X,Y,c) ],
+            ]
+
+        for (X,c,f) in [ (0x000A, 0, 0x00),
+                         (0x0040, 0, 0x00),
+                         (0x00FF, 0, 0x00),
+                         (0x0100, 0, 0x00),
+                         (0xFF00, 0, 0xBD),
+                         (0xFFFF, 0, 0xBD),
+                         (0x000A, 1, 0x00),
+                         (0x0040, 1, 0x00),
+                         (0x00FF, 1, 0x00),
+                         (0x0100, 1, 0x00),
+                         (0xFF00, 1, 0xBD),
+                         (0xFFFF, 1, 0xBD)]:
+            tests += [
+                [ [ HL(X), F(c) ], [ 0xED, 0x6A ], 15, [ (PC==0x02), (HL == (X+X+c)&0xFFFF), (F==f) ], "ADC HL,HL (0x{:X} + 0x{:X} + {})".format(X,X,c) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_sbc16(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for (X,Y,c,f) in [ (0x000A, 0x000B, 0, 0xAE),
+                           (0x0040, 0x0051, 0, 0xAE),
+                           (0x00FF, 0x0002, 0, 0x17),
+                           (0x00FF, 0x0001, 0, 0x17),
+                           (0x0100, 0x0001, 0, 0x17),
+                           (0xFF00, 0x0100, 0, 0xBF),
+                           (0xFFFF, 0x0001, 0, 0xBF),
+                           (0x000A, 0x000A, 1, 0xAE),
+                           (0x0040, 0x0050, 1, 0xAE),
+                           (0x00FF, 0x0001, 1, 0x17),
+                           (0x00FF, 0x0000, 1, 0x02),
+                           (0x0100, 0x0000, 1, 0x02),
+                           (0xFF00, 0x00FF, 1, 0xBF),
+                           (0xFFFF, 0x0000, 1, 0xAE),
+                         ]:
+            tests += [
+                [ [ BC(Y), HL(X), F(c) ], [ 0xED, 0x42 ], 15, [ (PC==0x02), (HL == (X-Y-c)&0xFFFF), (F==f) ], "SBC HL,BC (0x{:X} - 0x{:X} - {})".format(X,Y,c) ],
+                [ [ DE(Y), HL(X), F(c) ], [ 0xED, 0x52 ], 15, [ (PC==0x02), (HL == (X-Y-c)&0xFFFF), (F==f) ], "SBC HL,DE (0x{:X} - 0x{:X} - {})".format(X,Y,c) ],
+                [ [ SP(Y), HL(X), F(c) ], [ 0xED, 0x72 ], 15, [ (PC==0x02), (HL == (X-Y-c)&0xFFFF), (F==f) ], "SBC HL,SP (0x{:X} - 0x{:X} - {})".format(X,Y,c) ],
+            ]
+
+        for (X,c,f) in [ (0x000A, 0, 0x57),
+                         (0x0040, 0, 0x57),
+                         (0x00FF, 0, 0x57),
+                         (0x0100, 0, 0x57),
+                         (0xFF00, 0, 0x57),
+                         (0xFFFF, 0, 0x57),
+                         (0x000A, 1, 0xAE),
+                         (0x0040, 1, 0xAE),
+                         (0x00FF, 1, 0xAE),
+                         (0x0100, 1, 0xAE),
+                         (0xFF00, 1, 0xAE),
+                         (0xFFFF, 1, 0xAE)]:
+            tests += [
+                [ [ HL(X), F(c) ], [ 0xED, 0x62 ], 15, [ (PC==0x02), (HL == (-c)&0xFFFF), (F==f) ], "SBC HL,HL (0x{:X} - 0x{:X} - {})".format(X,X,c) ],
+            ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)

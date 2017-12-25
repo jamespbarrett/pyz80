@@ -36,10 +36,16 @@ def LDrs(r,s):
         setattr(state.cpu.reg, r, getattr(state.cpu.reg, s))
     return _inner
 
-def RRr(n,r):
+def RRr(n,reg=None, value=None):
     """Load the value from the specified register and store as a key in the kwargs of the state"""
     def _inner(state, *args):
-        state.kwargs[n] = getattr(state.cpu.reg, r)
+        if reg is not None:
+            v = getattr(state.cpu.reg, reg)
+        elif callable(value):
+            v = value(state, *args)
+        else:
+            v = value
+        state.kwargs[n] = v
     return _inner
 
 def EX(a=None, b=None):
@@ -648,11 +654,37 @@ def IO(ticks, locked, transform=None, action=None, key="value"):
         
     return _IO
 
+def ADC16(reg):
+    """This instruction gets messy in the table, so we use this function to template it"""
+    return [ RRr('value',   'HL'),
+             RRr('summand', reg),
+             force_flag('H', lambda  state : 1 if (((state.kwargs['summand']>>8)&0xF)+((state.kwargs['value']>>8)&0xF)+
+                                                       (((state.kwargs['summand']&0xFF) + (state.kwargs['value']&0xFF)
+                                                             +state.cpu.reg.getflag('C'))>>8) > 0xF) else 0),
+             LDr('HL', value=lambda state : (state.kwargs['summand'] + state.kwargs['value'] + state.cpu.reg.getflag('C'))&0xFFFF),
+             set_flags("S-5-3V0C", value=lambda state : (state.kwargs['summand'] >> 8) + (state.kwargs['value']>>8) +
+                           (((state.kwargs['summand']&0xFF) + (state.kwargs['value']&0xFF) + state.cpu.reg.getflag('C'))>>8)),
+             force_flag('Z', value=lambda state : 1 if state.cpu.reg.HL == 0x0000 else 0),]
+
+def SBC16(reg):
+    """This instruction gets messy in the table, so we use this function to template it"""
+    return [ RRr('value',   'HL'),
+             RRr('summand', value=lambda state : (-getattr(state.cpu.reg,reg))&0xFFFF),
+             force_flag('H', lambda  state : 1 if (((state.kwargs['summand']>>8)&0xF)+((state.kwargs['value']>>8)&0xF)+
+                                                       (((state.kwargs['summand']&0xFF) + (state.kwargs['value']&0xFF)
+                                                             -state.cpu.reg.getflag('C'))>>8) > 0xF) else 0),
+             LDr('HL', value=lambda state : (state.kwargs['summand'] + state.kwargs['value'] - state.cpu.reg.getflag('C'))&0xFFFF),
+             set_flags("S-5-3V1C", value=lambda state : (state.kwargs['summand'] >> 8) + (state.kwargs['value']>>8) +
+                           (((state.kwargs['summand']&0xFF) + (state.kwargs['value']&0xFF) - state.cpu.reg.getflag('C'))>>8)),
+             force_flag('Z', value=lambda state : 1 if state.cpu.reg.HL == 0x0000 else 0),]
+
 INSTRUCTION_STATES = {
     # Single bytes opcodes
     0x00 : (0, [],                  [] ),                                                             # NOP
     0x01 : (0, [],                  [ OD(), OD(action=LDr('BC')) ]),                                  # LD BC,nn
     0x02 : (0, [],                  [ MW(indirect="BC", source="A") ]),                               # LD (BC),A
+    0x03 : (0, [ LDr('BC', value=lambda state : (state.cpu.reg.BC + 1)&0xFFFF) ],
+                                    [] ),                                                             # INC BC
     0x04 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.B + 1, key="value"), LDr('B') ],
                                     [] ),                                                             # INC B
@@ -661,6 +693,12 @@ INSTRUCTION_STATES = {
                                     [] ),                                                             # DEC B
     0x06 : (0, [],                  [ OD(action=LDr('B')), ]),                                        # LD B,n
     0x08 : (0, [ EX() ],            []),                                                              # EX AF,AF'
+    0x09 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.H)&0xF)+((state.cpu.reg.C+state.cpu.reg.L)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.H + ((state.cpu.reg.C+state.cpu.reg.L)>>8)),
+                 LDr('HL', value=lambda state : (state.cpu.reg.HL + state.cpu.reg.BC)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD HL,BC
+    0x0B : (0, [ LDr('BC', value=lambda state : (state.cpu.reg.BC - 1)&0xFFFF) ],
+                                    [] ),                                                             # DEC BC
     0x0C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.C)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.C + 1, key="value"), LDr('C') ],
                                     [] ),                                                             # INC C
@@ -671,6 +709,8 @@ INSTRUCTION_STATES = {
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ]),                          # LD A,(BC)
     0x11 : (0, [],                  [ OD(), OD(action=LDr('DE')) ]),                                  # LD DE,nn
     0x12 : (0, [],                  [ MW(indirect="DE", source="A") ]),                               # LD (DE),A
+    0x13 : (0, [ LDr('DE', value=lambda state : (state.cpu.reg.DE + 1)&0xFFFF) ],
+                                    [] ),                                                             # INC DE
     0x14 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.D)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.D + 1, key="value"), LDr('D') ],
                                     [] ),                                                             # INC D
@@ -678,6 +718,12 @@ INSTRUCTION_STATES = {
                  set_flags("SZ5H3V1-", value=lambda state : state.cpu.reg.D - 1, key="value"), LDr('D') ],
                                     [] ),                                                             # DEC D
     0x16 : (0, [],                  [ OD(action=LDr('D')), ]),                                        # LD D,n
+    0x19 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.D)&0xF)+((state.cpu.reg.H)&0xF)+((state.cpu.reg.E+state.cpu.reg.L)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.D + state.cpu.reg.H + ((state.cpu.reg.E+state.cpu.reg.L)>>8)),
+                 LDr('HL', value=lambda state : (state.cpu.reg.HL + state.cpu.reg.DE)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD HL,DE
+    0x1B : (0, [ LDr('DE', value=lambda state : (state.cpu.reg.DE - 1)&0xFFFF) ],
+                                    [] ),                                                             # DEC DE
     0x1A : (0, [],                  [ MR(indirect="DE", action=LDr("A")) ]),                          # LD A,(DE)
     0x1C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.E)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.E + 1, key="value"), LDr('E') ],
@@ -691,6 +737,8 @@ INSTRUCTION_STATES = {
                                         OD(key="address",
                                         compound=high_after_low),
                                         MW(source="L"), MW(source="H") ]),                            # LD (nn),HL
+    0x23 : (0, [ LDr('HL', value=lambda state : (state.cpu.reg.HL + 1)&0xFFFF) ],
+                                    [] ),                                                             # INC HL
     0x24 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.H)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.H + 1, key="value"), LDr('H') ],
                                     [] ),                                                             # INC H
@@ -699,9 +747,15 @@ INSTRUCTION_STATES = {
                                     [] ),                                                             # DEC H
     0x26 : (0, [],                  [ OD(action=LDr('H')), ]),                                        # LD H,n
     0x27 : (0, [ daa() ],                  []),                                                       # DAA
+    0x29 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.H)&0xF)+((state.cpu.reg.H)&0xF)+((state.cpu.reg.L+state.cpu.reg.L)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.H + state.cpu.reg.H + ((state.cpu.reg.L+state.cpu.reg.L)>>8)),
+                 LDr('HL', value=lambda state : (state.cpu.reg.HL + state.cpu.reg.HL)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD HL,HL
     0x2A : (0, [],                  [ OD(key="address"),
                                       OD(key="address", compound=high_after_low),
                                       MR(action=LDr('L')), MR(action=LDr('H')) ]),                    # LD HL,(nn)
+    0x2B : (0, [ LDr('HL', value=lambda state : (state.cpu.reg.HL - 1)&0xFFFF) ],
+                                    [] ),                                                             # DEC HL
     0x2C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.L)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.L + 1, key="value"), LDr('L') ],
                                     [] ),                                                             # INC L
@@ -714,6 +768,8 @@ INSTRUCTION_STATES = {
     0x31 : (0, [],                  [ OD(), OD(action=LDr('SP')) ]),                                  # LD SP,nn
     0x32 : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MW(source="A") ]),                                          # LD (nn),A
+    0x33 : (0, [ LDr('SP', value=lambda state : (state.cpu.reg.SP + 1)&0xFFFF) ],
+                                    [] ),                                                             # INC SP
     0x34 : (0, [],                  [ MR(indirect="HL",
                                         action=do_each(force_flag('H', lambda  state,v : 1 if ((v&0xF)+1 > 0xF) else 0),
                                                       set_flags("SZ5-3V0-",
@@ -730,6 +786,12 @@ INSTRUCTION_STATES = {
     0x36 : (0, [],                  [ OD(), MW(indirect="HL") ]),                                     # LD (HL),n
     0x37 : (0, [ LDr('F', value=lambda state : (state.cpu.reg.F&0xC4)|(state.cpu.reg.A&0x28)|(0x01)) ],
                                     [] ),                                                             # SCF
+    0x39 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.SPH)&0xF)+((state.cpu.reg.H)&0xF)+((state.cpu.reg.SPL+state.cpu.reg.L)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.SPH + state.cpu.reg.H + ((state.cpu.reg.SPL+state.cpu.reg.L)>>8)),
+                 LDr('HL', value=lambda state : (state.cpu.reg.SP + state.cpu.reg.HL)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD HL,SP
+    0x3B : (0, [ LDr('SP', value=lambda state : (state.cpu.reg.SP - 1)&0xFFFF) ],
+                                    [] ),                                                             # DEC SP
     0x3C : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.A)&0xF)+1 > 0xF) else 0),
                  set_flags("SZ5-3V0-", value=lambda state : state.cpu.reg.A + 1, key="value"), LDr('A') ],
                                     [] ),                                                             # INC A
@@ -1034,14 +1096,34 @@ INSTRUCTION_STATES = {
                                                         )) ] ),                                       # CP n
 
     # Multibyte opcodes
+    (0xDD, 0x09) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.C+state.cpu.reg.IXL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.IXH + ((state.cpu.reg.C+state.cpu.reg.IXL)>>8)),
+                 LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.BC)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IX,BC
+    (0xDD, 0x19) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.D)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.E+state.cpu.reg.IXL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.D + state.cpu.reg.IXH + ((state.cpu.reg.E+state.cpu.reg.IXL)>>8)),
+                 LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.DE)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IX,DE
+    (0xDD, 0x29) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.IXL+state.cpu.reg.IXL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.IXH + state.cpu.reg.IXH + ((state.cpu.reg.IXL+state.cpu.reg.IXL)>>8)),
+                 LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.IX)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IX,IX
+    (0xDD, 0x39) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.SPH)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.SPL+state.cpu.reg.IXL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.SPH + state.cpu.reg.IXH + ((state.cpu.reg.SPL+state.cpu.reg.IXL)>>8)),
+                 LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.SP)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IX,SP
     (0xDD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IX')) ]),                            # LD IX,nn
     (0xDD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="IXL"),
                                             MW(source="IXH")]),                                       # LD (nn),IX
+    (0xDD, 0x23) : (0, [ LDr('IX', value=lambda state : (state.cpu.reg.IX + 1)&0xFFFF) ],
+                                    [] ),                                                             # INC IX
     (0xDD, 0x2A) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('IXL')), MR(action=LDr('IXH')) ]),          # LD IX,(nn)
+    (0xDD, 0x2B) : (0, [ LDr('IX', value=lambda state : (state.cpu.reg.IX - 1)&0xFFFF) ],
+                                    [] ),                                                             # DEC IX
     (0xDD, 0x34) : (0, [],                [ OD(key='address', signed=True),
                                             IO(5, True, transform={'address' : add_register('IX') }),
                                             MR(action=do_each(
@@ -1154,6 +1236,7 @@ INSTRUCTION_STATES = {
                         [ SR(), SR(action=LDr("IX"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IX
     (0xDD, 0xE5) : (1, [],                [ SW(source="IXH"), SW(source="IXL") ]),                    # PUSH IX
     (0xDD, 0xF9) : (0, [LDrs('SP','IX'),],[]),                                                        # LD SP,IX
+    (0xED, 0x42) : (0, SBC16('BC'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,BC
     (0xED, 0x43) : (0, [],                [ OD(key="address"),
                                             OD(key="address",
                                             compound=high_after_low),
@@ -1164,20 +1247,27 @@ INSTRUCTION_STATES = {
     (0xED, 0x4B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('C')), MR(action=LDr('B')) ]),              # LD BC,(nn)
+    (0xED, 0x4A) : (0, ADC16('BC'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,BC
     (0xED, 0x4F) : (0, [LDrs('R', 'A'),], []),                                                        # LD R,A
+    (0xED, 0x52) : (0, SBC16('DE'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,DE
     (0xED, 0x53) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="E"),
                                             MW(source="D") ]),                                        # LD (nn),DE
     (0xED, 0x57) : (0, [LDrs('A', 'I'), set_flags("SZ503*0-", source='I') ], []),                     # LD A,I
+    (0xED, 0x5A) : (0, ADC16('DE'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,DE
     (0xED, 0x5B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('E')), MR(action=LDr('D')) ]),              # LD DE,(nn)
     (0xED, 0x5F) : (0, [LDrs('A', 'R'), set_flags("SZ503*0-", source='R') ], []),                     # LD A,R
+    (0xED, 0x62) : (0, SBC16('HL'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,HL
+    (0xED, 0x6A) : (0, ADC16('HL'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,HL
+    (0xED, 0x72) : (0, SBC16('SP'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,SP
     (0xED, 0x73) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MW(source="SPL"),
                                             MW(source="SPH") ]),                                      # LD (nn),SP
+    (0xED, 0x7A) : (0, ADC16('SP'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,SP
     (0xED, 0x7B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('SPL')), MR(action=LDr('SPH')) ]),          # LD SP,(nn)
@@ -1247,6 +1337,26 @@ INSTRUCTION_STATES = {
                                                                   on_zero("BC", early_abort()),
                                                                   on_flag('Z', early_abort()))),
                                                 IO(5, True, action=do_each(dec("PC"), dec("PC"))) ]), # CPDR
+    (0xFD, 0x09) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.IYH)&0xF)+((state.cpu.reg.C+state.cpu.reg.IYL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.IYH + ((state.cpu.reg.C+state.cpu.reg.IYL)>>8)),
+                 LDr('IY', value=lambda state : (state.cpu.reg.IY + state.cpu.reg.BC)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IY,BC
+    (0xFD, 0x19) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.D)&0xF)+((state.cpu.reg.IYH)&0xF)+((state.cpu.reg.E+state.cpu.reg.IYL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.D + state.cpu.reg.IYH + ((state.cpu.reg.E+state.cpu.reg.IYL)>>8)),
+                 LDr('IY', value=lambda state : (state.cpu.reg.IY + state.cpu.reg.DE)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IY,DE
+    (0xFD, 0x23) : (0, [ LDr('IY', value=lambda state : (state.cpu.reg.IY + 1)&0xFFFF) ],
+                                    [] ),                                                             # INC IY
+    (0xFD, 0x29) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.IYH)&0xF)+((state.cpu.reg.IYH)&0xF)+((state.cpu.reg.IYL+state.cpu.reg.IYL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.IYH + state.cpu.reg.IYH + ((state.cpu.reg.IYL+state.cpu.reg.IYL)>>8)),
+                 LDr('IY', value=lambda state : (state.cpu.reg.IY + state.cpu.reg.IY)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IY,IY
+    (0xFD, 0x2B) : (0, [ LDr('IY', value=lambda state : (state.cpu.reg.IY - 1)&0xFFFF) ],
+                                    [] ),                                                             # DEC IY
+    (0xFD, 0x39) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.SPH)&0xF)+((state.cpu.reg.IYH)&0xF)+((state.cpu.reg.SPL+state.cpu.reg.IYL)>>8) > 0xF) else 0),
+                 set_flags("--5-3-0C", value=lambda state : state.cpu.reg.SPH + state.cpu.reg.IYH + ((state.cpu.reg.SPL+state.cpu.reg.IYL)>>8)),
+                 LDr('IY', value=lambda state : (state.cpu.reg.IY + state.cpu.reg.SP)&0xFFFF) ],
+                                    [ IO(4, True), IO(3, True) ] ),                                   # ADD IY,SP
     (0xFD, 0x21) : (0, [],                [ OD(), OD(action=LDr('IY')) ]),   # LD IY,nn
     (0xFD, 0x22) : (0, [],                [ OD(key="address"),
                                             OD(key="address"),
