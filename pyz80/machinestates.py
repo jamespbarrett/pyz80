@@ -16,12 +16,18 @@ def JP(state, target, *args):
     """Jump to the second parameter (an address)"""
     state.cpu.reg.PC = target
 
-def LDr(reg):
+def LDr(reg, value=None, key="value"):
     """Load into the specified register"""
-    def _inner(state, value=None, key="value", *args):
-        if value is None:
-            value = state.kwargs[key]
-        setattr(state.cpu.reg, reg, value)
+    def _inner(state, *args):
+        if len(args) > 0:
+            v = args[0]
+        elif value is None:
+            v = state.kwargs[key]
+        elif callable(value):
+            v = value(state, *args)
+        else:
+            v = value
+        setattr(state.cpu.reg, reg, v)
     return _inner
 
 def LDrs(r,s):
@@ -703,6 +709,8 @@ INSTRUCTION_STATES = {
                  set_flags("SZ5H3V1-", value=lambda state : state.cpu.reg.L - 1, key="value"), LDr('L') ],
                                     [] ),                                                             # DEC L
     0x2E : (0, [],                  [ OD(action=LDr('L')), ]),                                        # LD L,n
+    0x2F : (0, [ set_flags("--*1*-1-", source='A'), LDr('A', value=lambda state : (~(state.cpu.reg.A))&0xFF) ],
+                                    []),                                                              # CPL
     0x31 : (0, [],                  [ OD(), OD(action=LDr('SP')) ]),                                  # LD SP,nn
     0x32 : (0, [],                  [ OD(key="address"), OD(compound=high_after_low,key="address"),
                                           MW(source="A") ]),                                          # LD (nn),A

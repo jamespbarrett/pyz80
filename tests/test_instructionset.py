@@ -832,3 +832,14 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_cpl(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = []
+        for X in range(0,256):
+            tests += [
+                [ [ A(X) ], [ 0x2F ], 4, [ (PC==0x01), (A == (~X)&0xFF) ], "CPL (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
