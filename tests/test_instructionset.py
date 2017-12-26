@@ -1242,3 +1242,111 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_sla(self):
+        tests = []
+        for (X,f) in [(0x00, 0x00),
+                      (0x01, 0x00),
+                      (0x80, 0x01),
+                      (0xF0, 0x21),
+                      (0xFF, 0x29),
+                      (0x7F, 0x28), ]:
+            for (r,i) in [ ('B', 0x20),
+                           ('C', 0x21),
+                           ('D', 0x22),
+                           ('E', 0x23),
+                           ('H', 0x24),
+                           ('L', 0x25),
+                           ('A', 0x27) ]:
+                tests += [
+                    [ [ set_register_to(r,X) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X << 1))&0xFF), (F == f) ], "SLA {} (of 0x{:X})".format(r,X) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC) ], [ 0xCB, 0x26 ],             15, [ (M[0x1BBC] == (X << 1)&0xFF), (F == f) ], "SLA (HL) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0) ], [ 0xDD, 0xCB, 0x0C, 0x26 ], 23, [ (M[0x1BBC] == (X << 1)&0xFF), (F == f) ], "SLA (IX+0CH) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0) ], [ 0xFD, 0xCB, 0x0C, 0x26 ], 23, [ (M[0x1BBC] == (X << 1)&0xFF), (F == f) ], "SLA (IY+0CH) (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_sra(self):
+        tests = []
+        for (X,f) in [(0x00, 0x00),
+                      (0x01, 0x01),
+                      (0x80, 0x00),
+                      (0xF0, 0x28),
+                      (0xFF, 0x29),
+                      (0x7F, 0x29) ]:
+            for (r,i) in [ ('B', 0x28),
+                           ('C', 0x29),
+                           ('D', 0x2A),
+                           ('E', 0x2B),
+                           ('H', 0x2C),
+                           ('L', 0x2D),
+                           ('A', 0x2F) ]:
+                tests += [
+                    [ [ set_register_to(r,X) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X >> 1) | (X&0x80))&0xFF), (F == f) ], "SRA {} (of 0x{:X})".format(r,X) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC) ], [ 0xCB, 0x2E ],             15, [ (M[0x1BBC] == ((X >> 1) | (X&0x80))&0xFF), (F == f) ], "SRA (HL) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0) ], [ 0xDD, 0xCB, 0x0C, 0x2E ], 23, [ (M[0x1BBC] == ((X >> 1) | (X&0x80))&0xFF), (F == f) ], "SRA (IX+0CH) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0) ], [ 0xFD, 0xCB, 0x0C, 0x2E ], 23, [ (M[0x1BBC] == ((X >> 1) | (X&0x80))&0xFF), (F == f) ], "SRA (IY+0CH) (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_sl1(self):
+        tests = []
+        for (X,f) in [(0x00, 0x00),
+                      (0x01, 0x00),
+                      (0x80, 0x01),
+                      (0xF0, 0x21),
+                      (0xFF, 0x29),
+                      (0x7F, 0x28), ]:
+            for (r,i) in [ ('B', 0x30),
+                           ('C', 0x31),
+                           ('D', 0x32),
+                           ('E', 0x33),
+                           ('H', 0x34),
+                           ('L', 0x35),
+                           ('A', 0x37) ]:
+                tests += [
+                    [ [ set_register_to(r,X) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X << 1) + 1)&0xFF), (F == f) ], "SL1 {} (of 0x{:X})".format(r,X) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC) ], [ 0xCB, 0x36 ],             15, [ (M[0x1BBC] == ((X << 1) + 1)&0xFF), (F == f) ], "SL1 (HL) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0) ], [ 0xDD, 0xCB, 0x0C, 0x36 ], 23, [ (M[0x1BBC] == ((X << 1) + 1)&0xFF), (F == f) ], "SL1 (IX+0CH) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0) ], [ 0xFD, 0xCB, 0x0C, 0x36 ], 23, [ (M[0x1BBC] == ((X << 1) + 1)&0xFF), (F == f) ], "SL1 (IY+0CH) (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_srl(self):
+        tests = []
+        for (X,f) in [(0x00, 0x00),
+                      (0x01, 0x01),
+                      (0x80, 0x00),
+                      (0xF0, 0x28),
+                      (0xFF, 0x29),
+                      (0x7F, 0x29) ]:
+            for (r,i) in [ ('B', 0x38),
+                           ('C', 0x39),
+                           ('D', 0x3A),
+                           ('E', 0x3B),
+                           ('H', 0x3C),
+                           ('L', 0x3D),
+                           ('A', 0x3F) ]:
+                tests += [
+                    [ [ set_register_to(r,X) ], [ 0xCB, i ], 8, [ expect_register_equal(r, (X >> 1)), (F == f) ], "SRL {} (of 0x{:X})".format(r,X) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC) ], [ 0xCB, 0x3E ],             15, [ (M[0x1BBC] == (X >> 1)&0xFF), (F == f) ], "SRL (HL) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0) ], [ 0xDD, 0xCB, 0x0C, 0x3E ], 23, [ (M[0x1BBC] == (X >> 1)&0xFF), (F == f) ], "SRL (IX+0CH) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0) ], [ 0xFD, 0xCB, 0x0C, 0x3E ], 23, [ (M[0x1BBC] == (X >> 1)&0xFF), (F == f) ], "SRL (IY+0CH) (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)

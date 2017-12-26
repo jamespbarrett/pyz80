@@ -742,6 +742,34 @@ def RR(reg=None, key='value'):
     else:
         return set_flags("--503-0C", value=lambda state,v : (v >> 1) | (state.cpu.reg.getflag('C') << 7) | ((v&0x01) << 8), key=key)
 
+def SLA(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) << 1), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v << 1), key=key)
+
+def SRA(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) >> 1) | (getattr(state.cpu.reg,reg)&0x80) | ((getattr(state.cpu.reg,reg)&0x01) << 8), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v >> 1) | (v&0x80) | ((v&0x01) << 8), key=key)
+
+def SL1(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) << 1) | 0x01, dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v << 1) | 0x01, key=key)
+
+def SRL(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) >> 1) | ((getattr(state.cpu.reg,reg)&0x01) << 8), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v >> 1) | ((v&0x01) << 8), key=key)
+
 INSTRUCTION_STATES = {
     # Single bytes opcodes
     0x00 : (0, [],                  [] ),                                                             # NOP
@@ -1198,6 +1226,38 @@ INSTRUCTION_STATES = {
     (0xCB, 0x1D) : (0, [ RR("L") ],             []),                                                      # RR L
     (0xCB, 0x1E) : (0, [],                      [ MR(indirect="HL", action=RR()), MW(indirect="HL") ]),   # RR (HL)
     (0xCB, 0x1F) : (0, [ RR("A") ],             []),                                                      # RR A
+    (0xCB, 0x20) : (0, [ SLA("B") ],            []),                                                      # SLA B
+    (0xCB, 0x21) : (0, [ SLA("C") ],            []),                                                      # SLA C
+    (0xCB, 0x22) : (0, [ SLA("D") ],            []),                                                      # SLA D
+    (0xCB, 0x23) : (0, [ SLA("E") ],            []),                                                      # SLA E
+    (0xCB, 0x24) : (0, [ SLA("H") ],            []),                                                      # SLA H
+    (0xCB, 0x25) : (0, [ SLA("L") ],            []),                                                      # SLA L
+    (0xCB, 0x26) : (0, [],                      [ MR(indirect="HL", action=SLA()), MW(indirect="HL") ]),  # SLA (HL)
+    (0xCB, 0x27) : (0, [ SLA("A") ],            []),                                                      # SLA A
+    (0xCB, 0x28) : (0, [ SRA("B") ],            []),                                                      # SRA B
+    (0xCB, 0x29) : (0, [ SRA("C") ],            []),                                                      # SRA C
+    (0xCB, 0x2A) : (0, [ SRA("D") ],            []),                                                      # SRA D
+    (0xCB, 0x2B) : (0, [ SRA("E") ],            []),                                                      # SRA E
+    (0xCB, 0x2C) : (0, [ SRA("H") ],            []),                                                      # SRA H
+    (0xCB, 0x2D) : (0, [ SRA("L") ],            []),                                                      # SRA L
+    (0xCB, 0x2E) : (0, [],                      [ MR(indirect="HL", action=SRA()), MW(indirect="HL") ]),  # SRA (HL)
+    (0xCB, 0x2F) : (0, [ SRA("A") ],            []),                                                      # SRA A
+    (0xCB, 0x30) : (0, [ SL1("B") ],            []),                                                      # SL1 B (undocumemnted)
+    (0xCB, 0x31) : (0, [ SL1("C") ],            []),                                                      # SL1 C (undocumemnted)
+    (0xCB, 0x32) : (0, [ SL1("D") ],            []),                                                      # SL1 D (undocumemnted)
+    (0xCB, 0x33) : (0, [ SL1("E") ],            []),                                                      # SL1 E (undocumemnted)
+    (0xCB, 0x34) : (0, [ SL1("H") ],            []),                                                      # SL1 H (undocumemnted)
+    (0xCB, 0x35) : (0, [ SL1("L") ],            []),                                                      # SL1 L (undocumemnted)
+    (0xCB, 0x36) : (0, [],                      [ MR(indirect="HL", action=SL1()), MW(indirect="HL") ]),  # SL1 (HL) (undocumemnted)
+    (0xCB, 0x37) : (0, [ SL1("A") ],            []),                                                      # SL1 A (undocumemnted)
+    (0xCB, 0x38) : (0, [ SRL("B") ],            []),                                                      # SRL B
+    (0xCB, 0x39) : (0, [ SRL("C") ],            []),                                                      # SRL C
+    (0xCB, 0x3A) : (0, [ SRL("D") ],            []),                                                      # SRL D
+    (0xCB, 0x3B) : (0, [ SRL("E") ],            []),                                                      # SRL E
+    (0xCB, 0x3C) : (0, [ SRL("H") ],            []),                                                      # SRL H
+    (0xCB, 0x3D) : (0, [ SRL("L") ],            []),                                                      # SRL L
+    (0xCB, 0x3E) : (0, [],                      [ MR(indirect="HL", action=SRL()), MW(indirect="HL") ]),  # SRL (HL)
+    (0xCB, 0x3F) : (0, [ SRL("A") ],            []),                                                      # SRL A
     (0xDD, 0x09) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.C+state.cpu.reg.IXL)>>8) > 0xF) else 0),
                  set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.IXH + ((state.cpu.reg.C+state.cpu.reg.IXL)>>8)),
                  LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.BC)&0xFFFF) ],
@@ -1586,15 +1646,23 @@ INSTRUCTION_STATES = {
     (0xFD, 0xE5) : (1, [],                [ SW(source="IYH"), SW(source="IYL") ]),                    # PUSH IY
     (0xFD, 0xF9) : (0, [LDrs('SP','IY'),],[]),                                                        # LD SP,IY
 
-    (0xDD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (HL)
-    (0xDD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (HL)
-    (0xDD, 0xCB, 0x16) : (0, [], [ MR(action=RL(), incaddr=False), MW() ]),                           # RL (HL)
-    (0xDD, 0xCB, 0x1E) : (0, [], [ MR(action=RR(), incaddr=False), MW() ]),                           # RR (HL)
+    (0xDD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (IX+d)
+    (0xDD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (IX+d)
+    (0xDD, 0xCB, 0x16) : (0, [], [ MR(action=RL(), incaddr=False), MW() ]),                           # RL (IX+d)
+    (0xDD, 0xCB, 0x1E) : (0, [], [ MR(action=RR(), incaddr=False), MW() ]),                           # RR (IX+d)
+    (0xDD, 0xCB, 0x26) : (0, [], [ MR(action=SLA(), incaddr=False), MW() ]),                          # SLA (IX+d)
+    (0xDD, 0xCB, 0x2E) : (0, [], [ MR(action=SRA(), incaddr=False), MW() ]),                          # SRA (IX+d)
+    (0xDD, 0xCB, 0x36) : (0, [], [ MR(action=SL1(), incaddr=False), MW() ]),                          # SL1 (IX+d) (undocumemnted)
+    (0xDD, 0xCB, 0x3E) : (0, [], [ MR(action=SRL(), incaddr=False), MW() ]),                          # SRA (IX+d)
 
-    (0xFD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (HL)
-    (0xFD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (HL)
-    (0xFD, 0xCB, 0x16) : (0, [], [ MR(action=RL(), incaddr=False), MW() ]),                           # RL (HL)
-    (0xFD, 0xCB, 0x1E) : (0, [], [ MR(action=RR(), incaddr=False), MW() ]),                           # RR (HL)
+    (0xFD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (IY+d)
+    (0xFD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (IY+d)
+    (0xFD, 0xCB, 0x16) : (0, [], [ MR(action=RL(), incaddr=False), MW() ]),                           # RL (IY+d)
+    (0xFD, 0xCB, 0x1E) : (0, [], [ MR(action=RR(), incaddr=False), MW() ]),                           # RR (IY+d)
+    (0xFD, 0xCB, 0x26) : (0, [], [ MR(action=SLA(), incaddr=False), MW() ]),                          # SLA (IY+d)
+    (0xFD, 0xCB, 0x2E) : (0, [], [ MR(action=SRA(), incaddr=False), MW() ]),                          # SRA (IY+d)
+    (0xFD, 0xCB, 0x36) : (0, [], [ MR(action=SL1(), incaddr=False), MW() ]),                          # SL1 (IY+d) (undocumemnted)
+    (0xFD, 0xCB, 0x3E) : (0, [], [ MR(action=SRL(), incaddr=False), MW() ]),                          # SRA (IY+d)
     }
 
 def decode_instruction(instruction):
