@@ -1120,3 +1120,125 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rlc(self):
+        tests = []
+        for (X,f) in [  (0x00, 0x00),
+                            (0x01, 0x00),
+                            (0x80, 0x01),
+                            (0xF0, 0x21),
+                            (0xFF, 0x29),
+                            (0x7F, 0x28) ]:
+            for (r,i) in [ ('B', 0x00),
+                        ('C', 0x01),
+                        ('D', 0x02),
+                        ('E', 0x03),
+                        ('H', 0x04),
+                        ('L', 0x05),
+                        ('A', 0x07) ]:
+                tests += [
+                    [ [ set_register_to(r,X) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X << 1) + (X >> 7))&0xFF), (F == f) ], "RLC {} (of 0x{:X})".format(r,X) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC) ], [ 0xCB, 0x06 ], 15, [ (M[0x1BBC] == ((X << 1) + (X >> 7))&0xFF), (F == f) ], "RLC (HL) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0) ], [ 0xDD, 0xCB, 0x0C, 0x06 ], 23, [ (M[0x1BBC] == ((X << 1) + (X >> 7))&0xFF), (F == f) ], "RLC (IX+0CH) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0) ], [ 0xFD, 0xCB, 0x0C, 0x06 ], 23, [ (M[0x1BBC] == ((X << 1) + (X >> 7))&0xFF), (F == f) ], "RLC (IY+0CH) (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rrc(self):
+        tests = []
+        for (X,f) in [  (0x00, 0x00),
+                        (0x01, 0x01),
+                        (0x80, 0x00),
+                        (0xF0, 0x28),
+                        (0xFF, 0x29),
+                        (0x7F, 0x29) ]:
+            for (r,i) in [ ('B', 0x08),
+                           ('C', 0x09),
+                           ('D', 0x0A),
+                           ('E', 0x0B),
+                           ('H', 0x0C),
+                           ('L', 0x0D),
+                           ('A', 0x0F) ]:
+                tests += [
+                    [ [ set_register_to(r,X) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X >> 1) + (X << 7))&0xFF), (F == f) ], "RRC {} (of 0x{:X})".format(r,X) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC) ], [ 0xCB, 0x0E ], 15, [ (M[0x1BBC] == ((X >> 1) + (X << 7))&0xFF), (F == f) ], "RRC (HL) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0) ], [ 0xDD, 0xCB, 0x0C, 0x0E ], 23, [ (M[0x1BBC] == ((X >> 1) + (X << 7))&0xFF), (F == f) ], "RRC (IX+0CH) (of 0x{:X})".format(X) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0) ], [ 0xFD, 0xCB, 0x0C, 0x0E ], 23, [ (M[0x1BBC] == ((X >> 1) + (X << 7))&0xFF), (F == f) ], "RRC (IY+0CH) (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rl(self):
+        tests = []
+        for (X,c,f) in [(0x00, 0, 0x00),
+                        (0x00, 1, 0x00),
+                        (0x01, 0, 0x00),
+                        (0x01, 1, 0x00),
+                        (0x80, 0, 0x01),
+                        (0x80, 1, 0x01),
+                        (0xF0, 0, 0x21),
+                        (0xF0, 1, 0x21),
+                        (0xFF, 0, 0x29),
+                        (0xFF, 1, 0x29),
+                        (0x7F, 0, 0x28),
+                        (0x7F, 1, 0x28)
+                    ]:
+            for (r,i) in [ ('B', 0x10),
+                           ('C', 0x11),
+                           ('D', 0x12),
+                           ('E', 0x13),
+                           ('H', 0x14),
+                           ('L', 0x15),
+                           ('A', 0x17) ]:
+                tests += [
+                    [ [ set_register_to(r,X), F(c) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X << 1) + c)&0xFF), (F == f) ], "RL {} (of 0x{:X} with C={})".format(r,X,c) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC), F(c) ], [ 0xCB, 0x16 ], 15, [ (M[0x1BBC] == ((X << 1) + c)&0xFF), (F == f) ], "RL (HL) (of 0x{:X} with C={})".format(X,c) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0), F(c) ], [ 0xDD, 0xCB, 0x0C, 0x16 ], 23, [ (M[0x1BBC] == ((X << 1) + c)&0xFF), (F == f) ], "RL (IX+0CH) (of 0x{:X} with C={})".format(X,c) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0), F(c) ], [ 0xFD, 0xCB, 0x0C, 0x16 ], 23, [ (M[0x1BBC] == ((X << 1) + c)&0xFF), (F == f) ], "RL (IY+0CH) (of 0x{:X} with C={})".format(X,c) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rr(self):
+        tests = []
+        for (X,c,f) in [(0x00, 0, 0x00),
+                        (0x00, 1, 0x00),
+                        (0x01, 0, 0x01),
+                        (0x01, 1, 0x01),
+                        (0x80, 0, 0x00),
+                        (0x80, 1, 0x00),
+                        (0xF0, 0, 0x28),
+                        (0xF0, 1, 0x28),
+                        (0xFF, 0, 0x29),
+                        (0xFF, 1, 0x29),
+                        (0x7F, 0, 0x29),
+                        (0x7F, 1, 0x29)
+                    ]:
+            for (r,i) in [ ('B', 0x18),
+                           ('C', 0x19),
+                           ('D', 0x1A),
+                           ('E', 0x1B),
+                           ('H', 0x1C),
+                           ('L', 0x1D),
+                           ('A', 0x1F) ]:
+                tests += [
+                    [ [ set_register_to(r,X), F(c) ], [ 0xCB, i ], 8, [ expect_register_equal(r, ((X >> 1) + (c << 7))&0xFF), (F == f) ], "RR {} (of 0x{:X} with C={})".format(r,X,c) ],
+                ]
+            tests += [
+                [ [ M(0x1BBC, X), HL(0x1BBC), F(c) ], [ 0xCB, 0x1E ], 15, [ (M[0x1BBC] == ((X >> 1) + (c << 7))&0xFF), (F == f) ], "RR (HL) (of 0x{:X} with C={})".format(X,c) ],
+                [ [ M(0x1BBC, X), IX(0x1BB0), F(c) ], [ 0xDD, 0xCB, 0x0C, 0x1E ], 23, [ (M[0x1BBC] == ((X >> 1) + (c << 7))&0xFF), (F == f) ], "RR (IX+0CH) (of 0x{:X} with C={})".format(X,c) ],
+                [ [ M(0x1BBC, X), IY(0x1BB0), F(c) ], [ 0xFD, 0xCB, 0x0C, 0x1E ], 23, [ (M[0x1BBC] == ((X >> 1) + (c << 7))&0xFF), (F == f) ], "RR (IY+0CH) (of 0x{:X} with C={})".format(X,c) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)

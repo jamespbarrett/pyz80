@@ -4,7 +4,7 @@ class UnrecognisedInstructionError(Exception):
     def __init__(self, inst):
         self.inst = inst
         if isinstance(inst, tuple):
-            inst = "(0x{:X}, 0x{:X})".format(inst[0], inst[1])
+            inst = "(" + ', '.join('0x{:X}'.format(i) for i in inst) + ")"
         else:
             inst = "0x{:X}".format(inst)
         super(UnrecognisedInstructionError, self).__init__("Unrecognised Instruction {}".format(inst))
@@ -322,8 +322,10 @@ def OCF(prefix=None):
             yield
 
             inst = self.cpu.membus.read(PC)
-            if self.prefix is not None:
+            if isinstance(self.prefix, int):
                 inst = (self.prefix, inst)
+            elif isinstance(self.prefix, tuple):
+                inst = tuple(list(self.prefix) + [ inst ])
             yield
 
             (extra_clocks, actions, states) = decode_instruction(inst)
@@ -387,7 +389,7 @@ def OD(compound=high_after_low, action=None, key="value", signed=False):
             raise StopIteration
     return _OD
 
-def MR(address=None, indirect=None, compound=high_after_low, action=None, incaddr=True):
+def MR(address=None, indirect=None, compound=high_after_low, action=None, incaddr=True, verbose=False):
     class _MR(MachineState):
         """This state fetches a data byte from memory at a specified address (possibly using register indirect or indexed addressing):
         Initialisation Parameters:
@@ -415,6 +417,7 @@ def MR(address=None, indirect=None, compound=high_after_low, action=None, incadd
             self.compound = compound
             self.action   = action
             self.incaddr  = incaddr
+            self.verbose  = verbose
             super(_MR, self).__init__()
 
         def fetchlocked(self):
@@ -427,26 +430,40 @@ def MR(address=None, indirect=None, compound=high_after_low, action=None, incadd
                         raise Exception("MR without either address of indirect specified")
                     else:
                         self.address = self.kwargs['address']
+                        if self.verbose:
+                            print "MR: Address 0x{:X} taken from kwargs[{}]".format(self.address, 'address')
                 else:
                     self.address = getattr(self.cpu.reg, self.indirect)
+                    if self.verbose:
+                        print "MR: Address 0x{:X} taken from register {}".format(self.address, self.indirect)
             yield
 
             D = self.cpu.membus.read(self.address)
+            if self.verbose:
+                print "MR: Data 0x{:X} read from address 0x{:X}".format(D, self.address)
             yield
 
             if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
+                if self.verbose:
+                    print "MR: Compound data with 0x{:X} to get 0x{:X}".format(self.kwargs['value'], D)
             if self.incaddr:
                 self.kwargs['address'] = self.address + 1
+                if self.verbose:
+                    print "MR: Increment address to 0x{:X}".format(self.kwargs['address'])
             if self.action is not None:
                 self.action(self, D)
+                if self.verbose:
+                    print "MR: Performing Action"
             else:
                 self.kwargs['value'] = D
+                if self.verbose:
+                    print "MR: Setting 'value' in kwargs to 0x{:X}".format(D)
             raise StopIteration
 
     return _MR
 
-def MW(address=None, indirect=None, value=None, source=None, action=None, extra=0):
+def MW(address=None, indirect=None, value=None, source=None, action=None, extra=0, verbose=False):
     class _MW(MachineState):
         """This state writes a data byte to memory at a specified address (possibly using register indirect or indexed addressing):
         Initialisation Parameters:
@@ -475,6 +492,7 @@ def MW(address=None, indirect=None, value=None, source=None, action=None, extra=
             self.source   = source
             self.action   = action
             self.extra    = extra
+            self.verbose  = verbose
             super(_MW, self).__init__()
 
         def fetchlocked(self):
@@ -487,8 +505,12 @@ def MW(address=None, indirect=None, value=None, source=None, action=None, extra=
                         raise Exception("MR without either address of indirect specified")
                     else:
                         self.address = self.kwargs['address']
+                        if self.verbose:
+                            print "MW: Address 0x{:X} from kwargs".format(self.address)
                 else:
                     self.address = getattr(self.cpu.reg, self.indirect)
+                    if self.verbose:
+                        print "MW: Address 0x{:X} from register {}".format(self.address, self.indirect)
             yield
 
             if self.value is None:
@@ -497,18 +519,32 @@ def MW(address=None, indirect=None, value=None, source=None, action=None, extra=
                         raise Exception("MR without either value or source specified")
                     else:
                         self.value = self.kwargs['value']
+                        if self.verbose:
+                            print "MW: Value 0x{:X} from kwargs".format(self.value)
                 else:
                     self.value = getattr(self.cpu.reg, self.source)
+                    if self.verbose:
+                        print "MW: Value 0x{:X} from register {}".format(self.value, self.source)
+            elif callable(self.value):
+                self.value = self.value(self)
+                if self.verbose:
+                    print "MW: Value 0x{:X} from callable".format(self.value)
             yield
 
             self.cpu.membus.write(self.address, self.value)
+            if self.verbose:
+                print "MW: Writing 0x{:X} to 0x{:X}".format(self.value, self.address)
             self.kwargs['address'] = self.address + 1
+            if self.verbose:
+                print "MW: Increment Address to 0x{:X}".format(self.kwargs['address'])
 
             for n in range(0,self.extra):
                 yield
 
             if self.action is not None:
                 self.action(self, self.value)
+                if self.verbose:
+                    print "MW: Taking action"
             raise StopIteration
         
     return _MW
@@ -678,6 +714,34 @@ def SBC16(reg):
                            (((state.kwargs['summand']&0xFF) + (state.kwargs['value']&0xFF) - state.cpu.reg.getflag('C'))>>8)),
              force_flag('Z', value=lambda state : 1 if state.cpu.reg.HL == 0x0000 else 0),]
 
+def RLC(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) << 1) | (getattr(state.cpu.reg,reg) >> 7), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v << 1) | (v >> 7), key=key)
+
+def RL(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) << 1) | (state.cpu.reg.getflag('C')), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v << 1) | (state.cpu.reg.getflag('C')), key=key)
+
+def RRC(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) >> 1) | ((getattr(state.cpu.reg,reg)&0x01) << 7) | ((getattr(state.cpu.reg,reg)&0x01) << 8), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v >> 1) | ((v&0x01) << 7) | ((v&0x01) << 8), key=key)
+
+def RR(reg=None, key='value'):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("--503-0C", value=lambda state : (getattr(state.cpu.reg,reg) >> 1) | (state.cpu.reg.getflag('C') << 7) | ((getattr(state.cpu.reg,reg)&0x01) << 8), dest=reg)
+    else:
+        return set_flags("--503-0C", value=lambda state,v : (v >> 1) | (state.cpu.reg.getflag('C') << 7) | ((v&0x01) << 8), key=key)
+
 INSTRUCTION_STATES = {
     # Single bytes opcodes
     0x00 : (0, [],                  [] ),                                                             # NOP
@@ -692,8 +756,7 @@ INSTRUCTION_STATES = {
                  set_flags("SZ5-3V1-", value=lambda state : state.cpu.reg.B - 1, key="value"), LDr('B') ],
                                     [] ),                                                             # DEC B
     0x06 : (0, [],                  [ OD(action=LDr('B')), ]),                                        # LD B,n
-    0x07 : (0, [ set_flags("--503-0C", value=lambda state : (state.cpu.reg.A << 1) | (state.cpu.reg.A >> 7), dest="A") ],
-                                    []),                                                              # RLCA
+    0x07 : (0, [ RLC("A") ],        []),                                                              # RLCA
     0x08 : (0, [ EX() ],            []),                                                              # EX AF,AF'
     0x09 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.H)&0xF)+((state.cpu.reg.C+state.cpu.reg.L)>>8) > 0xF) else 0),
                  set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.H + ((state.cpu.reg.C+state.cpu.reg.L)>>8)),
@@ -722,8 +785,7 @@ INSTRUCTION_STATES = {
                  set_flags("SZ5H3V1-", value=lambda state : state.cpu.reg.D - 1, key="value"), LDr('D') ],
                                     [] ),                                                             # DEC D
     0x16 : (0, [],                  [ OD(action=LDr('D')), ]),                                        # LD D,n
-    0x17 : (0, [ set_flags("--503-0C", value=lambda state : (state.cpu.reg.A << 1) | (state.cpu.reg.getflag('C')), dest="A") ],
-                                    []),                                                              # RLA
+    0x17 : (0, [ RL("A") ],         []),                                                              # RLA
     0x19 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.D)&0xF)+((state.cpu.reg.H)&0xF)+((state.cpu.reg.E+state.cpu.reg.L)>>8) > 0xF) else 0),
                  set_flags("--5-3-0C", value=lambda state : state.cpu.reg.D + state.cpu.reg.H + ((state.cpu.reg.E+state.cpu.reg.L)>>8)),
                  LDr('HL', value=lambda state : (state.cpu.reg.HL + state.cpu.reg.DE)&0xFFFF) ],
@@ -738,8 +800,7 @@ INSTRUCTION_STATES = {
                  set_flags("SZ5H3V1-", value=lambda state : state.cpu.reg.E - 1, key="value"), LDr('E') ],
                                     [] ),                                                             # DEC E
     0x1E : (0, [],                  [ OD(action=LDr('E')), ]),                                        # LD E,n
-    0x1F : (0, [ set_flags("--503-0C", value=lambda state : (state.cpu.reg.A >> 1) | (state.cpu.reg.getflag('C') << 7) | ((state.cpu.reg.A&0x01) << 8), dest="A") ],
-                                    []),                                                              # RRA
+    0x1F : (0, [ RR("A") ],         []),                                                              # RRA
     0x21 : (0, [],                  [ OD(), OD(action=LDr('HL')) ]),                                  # LD HL,nn
     0x22 : (0, [],                  [ OD(key="address"),
                                         OD(key="address",
@@ -1062,6 +1123,7 @@ INSTRUCTION_STATES = {
                                                 set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v,
                                                         dest="A"))) ] ),                              # ADD n
+    0xCB : (0, [],                  [ OCF(prefix=0xCB) ]),                                            # -- Byte one of multibyte OPCODE
     0xCE : (0, [],                  [ OD(action=do_each(force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)+(v&0xF)+state.cpu.reg.getflag('C') > 0xF) else 0),
                                                         set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
@@ -1104,6 +1166,38 @@ INSTRUCTION_STATES = {
                                                         )) ] ),                                       # CP n
 
     # Multibyte opcodes
+    (0xCB, 0x00) : (0, [ RLC("B") ],            []),                                                      # RLC B
+    (0xCB, 0x01) : (0, [ RLC("C") ],            []),                                                      # RLC C
+    (0xCB, 0x02) : (0, [ RLC("D") ],            []),                                                      # RLC D
+    (0xCB, 0x03) : (0, [ RLC("E") ],            []),                                                      # RLC E
+    (0xCB, 0x04) : (0, [ RLC("H") ],            []),                                                      # RLC H
+    (0xCB, 0x05) : (0, [ RLC("L") ],            []),                                                      # RLC L
+    (0xCB, 0x06) : (0, [],                      [ MR(indirect="HL", action=RLC()), MW(indirect="HL") ]),  # RLC (HL)
+    (0xCB, 0x07) : (0, [ RLC("A") ],            []),                                                      # RLC A
+    (0xCB, 0x08) : (0, [ RRC("B") ],            []),                                                      # RRC B
+    (0xCB, 0x09) : (0, [ RRC("C") ],            []),                                                      # RRC C
+    (0xCB, 0x0A) : (0, [ RRC("D") ],            []),                                                      # RRC D
+    (0xCB, 0x0B) : (0, [ RRC("E") ],            []),                                                      # RRC E
+    (0xCB, 0x0C) : (0, [ RRC("H") ],            []),                                                      # RRC H
+    (0xCB, 0x0D) : (0, [ RRC("L") ],            []),                                                      # RRC L
+    (0xCB, 0x0E) : (0, [],                      [ MR(indirect="HL", action=RRC()), MW(indirect="HL") ]),  # RRC (HL)
+    (0xCB, 0x0F) : (0, [ RRC("A") ],            []),                                                      # RRC A
+    (0xCB, 0x10) : (0, [ RL("B") ],             []),                                                      # RL B
+    (0xCB, 0x11) : (0, [ RL("C") ],             []),                                                      # RL C
+    (0xCB, 0x12) : (0, [ RL("D") ],             []),                                                      # RL D
+    (0xCB, 0x13) : (0, [ RL("E") ],             []),                                                      # RL E
+    (0xCB, 0x14) : (0, [ RL("H") ],             []),                                                      # RL H
+    (0xCB, 0x15) : (0, [ RL("L") ],             []),                                                      # RL L
+    (0xCB, 0x16) : (0, [],                      [ MR(indirect="HL", action=RL()), MW(indirect="HL") ]),   # RL (HL)
+    (0xCB, 0x17) : (0, [ RL("A") ],             []),                                                      # RL A
+    (0xCB, 0x18) : (0, [ RR("B") ],             []),                                                      # RR B
+    (0xCB, 0x19) : (0, [ RR("C") ],             []),                                                      # RR C
+    (0xCB, 0x1A) : (0, [ RR("D") ],             []),                                                      # RR D
+    (0xCB, 0x1B) : (0, [ RR("E") ],             []),                                                      # RR E
+    (0xCB, 0x1C) : (0, [ RR("H") ],             []),                                                      # RR H
+    (0xCB, 0x1D) : (0, [ RR("L") ],             []),                                                      # RR L
+    (0xCB, 0x1E) : (0, [],                      [ MR(indirect="HL", action=RR()), MW(indirect="HL") ]),   # RR (HL)
+    (0xCB, 0x1F) : (0, [ RR("A") ],             []),                                                      # RR A
     (0xDD, 0x09) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.C+state.cpu.reg.IXL)>>8) > 0xF) else 0),
                  set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.IXH + ((state.cpu.reg.C+state.cpu.reg.IXL)>>8)),
                  LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.BC)&0xFFFF) ],
@@ -1239,6 +1333,9 @@ INSTRUCTION_STATES = {
                                             IO(5, True, transform={'address' : add_register('IX') }),
                                             MR(action=set_flags("SZ5H3V1C",
                                                value=lambda state, v : state.cpu.reg.A - v,)) ] ),    # CP (IX+d)
+    (0xDD, 0xCB) : (0, [],                [ OD(key='address', signed=True),
+                                            IO(1, True, transform={'address' : add_register('IX') }),
+                                            OCF(prefix=(0xDD, 0xCB)) ]),                              # -- second and third bytes of 4 byte op-code
     (0xDD, 0xE1) : (0, [],                [ SR(), SR(action=LDr("IX")) ]),                            # POP IX
     (0xDD, 0xE3) : (0, [ RRr('H','IXH'), RRr('L','IXL') ],
                         [ SR(), SR(action=LDr("IX"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IX
@@ -1480,11 +1577,24 @@ INSTRUCTION_STATES = {
                                             IO(5, True, transform={'address' : add_register('IY') }),
                                             MR(action=set_flags("SZ5H3V1C",
                                                value=lambda state, v : state.cpu.reg.A - v,)) ] ),    # CP (IY+d)
+    (0xFD, 0xCB) : (0, [],                [ OD(key='address', signed=True),
+                                            IO(1, True, transform={'address' : add_register('IY') }),
+                                            OCF(prefix=(0xFD, 0xCB)) ]),                              # -- second and third bytes of 4 byte op-code
     (0xFD, 0xE1) : (0, [],                [ SR(), SR(action=LDr("IY")) ]),                            # POP IY
     (0xFD, 0xE3) : (0, [ RRr('H','IYH'), RRr('L','IYL') ],
                         [ SR(), SR(action=LDr("IY"), extra=1), SW(key="H"), SW(key="L", extra=2) ]),  # EX (SP),IY
     (0xFD, 0xE5) : (1, [],                [ SW(source="IYH"), SW(source="IYL") ]),                    # PUSH IY
     (0xFD, 0xF9) : (0, [LDrs('SP','IY'),],[]),                                                        # LD SP,IY
+
+    (0xDD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (HL)
+    (0xDD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (HL)
+    (0xDD, 0xCB, 0x16) : (0, [], [ MR(action=RL(), incaddr=False), MW() ]),                           # RL (HL)
+    (0xDD, 0xCB, 0x1E) : (0, [], [ MR(action=RR(), incaddr=False), MW() ]),                           # RR (HL)
+
+    (0xFD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (HL)
+    (0xFD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (HL)
+    (0xFD, 0xCB, 0x16) : (0, [], [ MR(action=RL(), incaddr=False), MW() ]),                           # RL (HL)
+    (0xFD, 0xCB, 0x1E) : (0, [], [ MR(action=RR(), incaddr=False), MW() ]),                           # RR (HL)
     }
 
 def decode_instruction(instruction):
