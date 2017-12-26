@@ -1044,3 +1044,79 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rlca(self):
+        tests = []
+        for (X,f) in [  (0x00, 0x00),
+                        (0x01, 0x00),
+                        (0x80, 0x01),
+                        (0xF0, 0x21),
+                        (0xFF, 0x29),
+                        (0x7F, 0x28)
+                    ]:
+            tests += [
+                [ [ A(X) ], [ 0x07 ], 4, [ (A == ((X << 1) + (X >> 7))&0xFF), (F == f) ], "RLCA (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rrca(self):
+        tests = []
+        for (X,f) in [  (0x00, 0x00),
+                        (0x01, 0x01),
+                        (0x80, 0x00),
+                        (0xF0, 0x28),
+                        (0xFF, 0x29),
+                        (0x7F, 0x29)
+                    ]:
+            tests += [
+                [ [ A(X) ], [ 0x0F ], 4, [ (A == ((X >> 1) + ((X&0x1) << 7))&0xFF), (F == f) ], "RRCA (of 0x{:X})".format(X) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rla(self):
+        tests = []
+        for (X,c,f) in [(0x00, 0, 0x00),
+                        (0x00, 1, 0x00),
+                        (0x01, 0, 0x00),
+                        (0x01, 1, 0x00),
+                        (0x80, 0, 0x01),
+                        (0x80, 1, 0x01),
+                        (0xF0, 0, 0x21),
+                        (0xF0, 1, 0x21),
+                        (0xFF, 0, 0x29),
+                        (0xFF, 1, 0x29),
+                        (0x7F, 0, 0x28),
+                        (0x7F, 1, 0x28)
+                    ]:
+            tests += [
+                [ [ A(X), F(c) ], [ 0x17 ], 4, [ (A == ((X << 1) + c)&0xFF), (F == f) ], "RLA (of 0x{:X} with C={})".format(X,c) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rra(self):
+        tests = []
+        for (X,c,f) in [(0x00, 0, 0x00),
+                        (0x00, 1, 0x00),
+                        (0x01, 0, 0x01),
+                        (0x01, 1, 0x01),
+                        (0x80, 0, 0x00),
+                        (0x80, 1, 0x00),
+                        (0xF0, 0, 0x28),
+                        (0xF0, 1, 0x28),
+                        (0xFF, 0, 0x29),
+                        (0xFF, 1, 0x29),
+                        (0x7F, 0, 0x29),
+                        (0x7F, 1, 0x29)
+                    ]:
+            tests += [
+                [ [ A(X), F(c) ], [ 0x1F ], 4, [ (A == ((X >> 1) + (c << 7))&0xFF), (F == f) ], "RRA (of 0x{:X} with C={})".format(X,c) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
