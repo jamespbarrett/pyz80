@@ -1426,7 +1426,19 @@ INSTRUCTION_STATES = {
                                             MR(action=LDr('E')), MR(action=LDr('D')) ]),              # LD DE,(nn)
     (0xED, 0x5F) : (0, [LDrs('A', 'R'), set_flags("SZ503*0-", source='R') ], []),                     # LD A,R
     (0xED, 0x62) : (0, SBC16('HL'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,HL
+    (0xED, 0x67) : (0, [],               [ MR(indirect="HL",
+                                              action=do_each(
+                                                  RRr("value", value=lambda state,v : (v >> 4) | (state.cpu.reg.A << 4)),
+                                                  set_flags("SZ503P0-", value=lambda state,v : (v&0x0F), dest="A", key=None))),
+                                            IO(4, True),
+                                            MW(indirect="HL") ] ),                                    # RRD
     (0xED, 0x6A) : (0, ADC16('HL'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,HL
+    (0xED, 0x6F) : (0, [],               [ MR(indirect="HL",
+                                              action=do_each(
+                                                  RRr("value", value=lambda state,v : (v << 4) | (state.cpu.reg.A&0x0F)),
+                                                  set_flags("SZ503P0-", value=lambda state,v : (v >> 4), dest="A", key=None))),
+                                            IO(4, True),
+                                            MW(indirect="HL") ] ),                                    # RLD
     (0xED, 0x72) : (0, SBC16('SP'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,SP
     (0xED, 0x73) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),

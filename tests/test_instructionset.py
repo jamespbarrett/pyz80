@@ -1350,3 +1350,19 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rld(self):
+        tests = [
+            [ [ A(0xF1), M(0x1BBC,0x23), HL(0x1BBC) ], [ 0xED, 0x6F ], 18, [ (A == 0x02), (M[0x1BBC] == 0x31), (F == 0x00) ], "RLD (of 0xF1 and 0x23)".format() ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rrd(self):
+        tests = [
+            [ [ A(0xF1), M(0x1BBC,0x23), HL(0x1BBC) ], [ 0xED, 0x67 ], 18, [ (A == 0x03), (M[0x1BBC] == 0x12), (F == 0x04) ], "RRD (of 0xF1 and 0x23)".format() ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
