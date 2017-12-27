@@ -1524,3 +1524,19 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_rst(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xC7 ], 11, [ (PC == 0x0000), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 00H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xCF ], 11, [ (PC == 0x0008), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 08H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xD7 ], 11, [ (PC == 0x0010), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 10H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xDF ], 11, [ (PC == 0x0018), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 18H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xE7 ], 11, [ (PC == 0x0020), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 20H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xEF ], 11, [ (PC == 0x0028), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 28H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xF7 ], 11, [ (PC == 0x0030), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 30H" ],
+            [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xFF ], 11, [ (PC == 0x0038), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 38H" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
