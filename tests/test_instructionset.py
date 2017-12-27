@@ -166,6 +166,10 @@ class TestInstructionSet(unittest.TestCase):
 
         self.__class__.executed_instructions.extend(call[1][0] for call in _decode_instruction.mock_calls)
 
+        self.assertEqual(len(cpu.pipelines), 1)
+        self.assertEqual(len(cpu.pipelines[0]), 1)
+        self.assertEqual(str(type(cpu.pipelines[0][0])), "<class 'pyz80.machinestates._OCF'>")
+
         for action in post:
             action(self, cpu, name)
 
@@ -1464,6 +1468,31 @@ class TestInstructionSet(unittest.TestCase):
         tests = [
             [ [ B(0x02) ], [ 0x10, 0x08 ], 13, [ (PC == 0x000A), (B == 0x01) ], "DJNZ 0AH (with B == 0x02)" ],
             [ [ B(0x01) ], [ 0x10, 0x08 ],  8, [ (PC == 0x0002), (B == 0x00) ], "DJNZ 0AH (with B == 0x01)" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_call(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ PC(0x1231), SP(0x2BBC) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xCD, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL 1BBCH" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xDC, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL C,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x01) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xDC, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL C,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x01) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xD4, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL NC,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xD4, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL NC,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xCC, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL Z,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x40) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xCC, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL Z,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x40) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xC4, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL NZ,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xC4, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL NZ,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xEC, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL PE,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x04) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xEC, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL PE,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x04) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xE4, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL PO,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xE4, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL PO,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xFC, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL M,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x80) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xFC, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL M,1BBCH (jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x80) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xF4, 0xBC, 0x1B ], 10, [ (PC == 0x1234), (SP == 0x2BBC), ], "CALL P,1BBCH (no jump)" ],
+            [ [ PC(0x1231), SP(0x2BBC), F(0x00) ],  [ 0xFF for _ in range(0,0x1231) ] + [ 0xF4, 0xBC, 0x1B ], 17, [ (PC == 0x1BBC), (SP == 0x2BBA), (M[0x2BBB] == 0x12), (M[0x2BBA] == 0x34) ], "CALL P,1BBCH (jump)" ],
         ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
