@@ -770,6 +770,27 @@ def SRL(reg=None, key='value'):
     else:
         return set_flags("--503-0C", value=lambda state,v : (v >> 1) | ((v&0x01) << 8), key=key)
 
+def BIT(n, reg=None):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return set_flags("SZ513P0-", value=lambda state : (getattr(state.cpu.reg,reg)&(1 << n)))
+    else:
+        return set_flags("SZ513P0-", value=lambda state,v : (v&(1 << n)))
+
+def RES(n, reg=None, key="value"):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return LDr(reg, value=lambda state : (getattr(state.cpu.reg,reg)&(0xFF - (1 << n))))
+    else:
+        return RRr(key, value=lambda state,v : (v&(0xFF - (1 << n))))
+
+def SET(n, reg=None, key="value"):
+    """This instruction gets a little messy in the table, so this helps simplify it."""
+    if reg is not None:
+        return LDr(reg, value=lambda state : (getattr(state.cpu.reg,reg)|(1 << n)))
+    else:
+        return RRr(key, value=lambda state,v : (v|(1 << n)))
+
 INSTRUCTION_STATES = {
     # Single bytes opcodes
     0x00 : (0, [],                  [] ),                                                             # NOP
@@ -1258,6 +1279,198 @@ INSTRUCTION_STATES = {
     (0xCB, 0x3D) : (0, [ SRL("L") ],            []),                                                      # SRL L
     (0xCB, 0x3E) : (0, [],                      [ MR(indirect="HL", action=SRL()), MW(indirect="HL") ]),  # SRL (HL)
     (0xCB, 0x3F) : (0, [ SRL("A") ],            []),                                                      # SRL A
+    (0xCB, 0x40) : (0, [ BIT(0, "B") ],         []),                                                      # BIT 0,B
+    (0xCB, 0x41) : (0, [ BIT(0, "C") ],         []),                                                      # BIT 0,C
+    (0xCB, 0x42) : (0, [ BIT(0, "D") ],         []),                                                      # BIT 0,D
+    (0xCB, 0x43) : (0, [ BIT(0, "E") ],         []),                                                      # BIT 0,E
+    (0xCB, 0x44) : (0, [ BIT(0, "H") ],         []),                                                      # BIT 0,H
+    (0xCB, 0x45) : (0, [ BIT(0, "L") ],         []),                                                      # BIT 0,L
+    (0xCB, 0x46) : (0, [],                      [ MR(indirect="HL", action=BIT(0)) ]),                    # BIT 0,(HL)
+    (0xCB, 0x47) : (0, [ BIT(0, "A") ],         []),                                                      # BIT 0,A
+    (0xCB, 0x48) : (0, [ BIT(1, "B") ],         []),                                                      # BIT 1,B
+    (0xCB, 0x49) : (0, [ BIT(1, "C") ],         []),                                                      # BIT 1,C
+    (0xCB, 0x4A) : (0, [ BIT(1, "D") ],         []),                                                      # BIT 1,D
+    (0xCB, 0x4B) : (0, [ BIT(1, "E") ],         []),                                                      # BIT 1,E
+    (0xCB, 0x4C) : (0, [ BIT(1, "H") ],         []),                                                      # BIT 1,H
+    (0xCB, 0x4D) : (0, [ BIT(1, "L") ],         []),                                                      # BIT 1,L
+    (0xCB, 0x4E) : (0, [],                      [ MR(indirect="HL", action=BIT(1)) ]),                    # BIT 1,(HL)
+    (0xCB, 0x4F) : (0, [ BIT(1, "A") ],         []),                                                      # BIT 1,A
+    (0xCB, 0x50) : (0, [ BIT(2, "B") ],         []),                                                      # BIT 2,B
+    (0xCB, 0x51) : (0, [ BIT(2, "C") ],         []),                                                      # BIT 2,C
+    (0xCB, 0x52) : (0, [ BIT(2, "D") ],         []),                                                      # BIT 2,D
+    (0xCB, 0x53) : (0, [ BIT(2, "E") ],         []),                                                      # BIT 2,E
+    (0xCB, 0x54) : (0, [ BIT(2, "H") ],         []),                                                      # BIT 2,H
+    (0xCB, 0x55) : (0, [ BIT(2, "L") ],         []),                                                      # BIT 2,L
+    (0xCB, 0x56) : (0, [],                      [ MR(indirect="HL", action=BIT(2)) ]),                    # BIT 2,(HL)
+    (0xCB, 0x57) : (0, [ BIT(2, "A") ],         []),                                                      # BIT 2,A
+    (0xCB, 0x58) : (0, [ BIT(3, "B") ],         []),                                                      # BIT 3,B
+    (0xCB, 0x59) : (0, [ BIT(3, "C") ],         []),                                                      # BIT 3,C
+    (0xCB, 0x5A) : (0, [ BIT(3, "D") ],         []),                                                      # BIT 3,D
+    (0xCB, 0x5B) : (0, [ BIT(3, "E") ],         []),                                                      # BIT 3,E
+    (0xCB, 0x5C) : (0, [ BIT(3, "H") ],         []),                                                      # BIT 3,H
+    (0xCB, 0x5D) : (0, [ BIT(3, "L") ],         []),                                                      # BIT 3,L
+    (0xCB, 0x5E) : (0, [],                      [ MR(indirect="HL", action=BIT(3)) ]),                    # BIT 3,(HL)
+    (0xCB, 0x5F) : (0, [ BIT(3, "A") ],         []),                                                      # BIT 3,A
+    (0xCB, 0x60) : (0, [ BIT(4, "B") ],         []),                                                      # BIT 4,B
+    (0xCB, 0x61) : (0, [ BIT(4, "C") ],         []),                                                      # BIT 4,C
+    (0xCB, 0x62) : (0, [ BIT(4, "D") ],         []),                                                      # BIT 4,D
+    (0xCB, 0x63) : (0, [ BIT(4, "E") ],         []),                                                      # BIT 4,E
+    (0xCB, 0x64) : (0, [ BIT(4, "H") ],         []),                                                      # BIT 4,H
+    (0xCB, 0x65) : (0, [ BIT(4, "L") ],         []),                                                      # BIT 4,L
+    (0xCB, 0x66) : (0, [],                      [ MR(indirect="HL", action=BIT(4)) ]),                    # BIT 4,(HL)
+    (0xCB, 0x67) : (0, [ BIT(4, "A") ],         []),                                                      # BIT 4,A
+    (0xCB, 0x68) : (0, [ BIT(5, "B") ],         []),                                                      # BIT 5,B
+    (0xCB, 0x69) : (0, [ BIT(5, "C") ],         []),                                                      # BIT 5,C
+    (0xCB, 0x6A) : (0, [ BIT(5, "D") ],         []),                                                      # BIT 5,D
+    (0xCB, 0x6B) : (0, [ BIT(5, "E") ],         []),                                                      # BIT 5,E
+    (0xCB, 0x6C) : (0, [ BIT(5, "H") ],         []),                                                      # BIT 5,H
+    (0xCB, 0x6D) : (0, [ BIT(5, "L") ],         []),                                                      # BIT 5,L
+    (0xCB, 0x6E) : (0, [],                      [ MR(indirect="HL", action=BIT(5)) ]),                    # BIT 5,(HL)
+    (0xCB, 0x6F) : (0, [ BIT(5, "A") ],         []),                                                      # BIT 5,A
+    (0xCB, 0x70) : (0, [ BIT(6, "B") ],         []),                                                      # BIT 6,B
+    (0xCB, 0x71) : (0, [ BIT(6, "C") ],         []),                                                      # BIT 6,C
+    (0xCB, 0x72) : (0, [ BIT(6, "D") ],         []),                                                      # BIT 6,D
+    (0xCB, 0x73) : (0, [ BIT(6, "E") ],         []),                                                      # BIT 6,E
+    (0xCB, 0x74) : (0, [ BIT(6, "H") ],         []),                                                      # BIT 6,H
+    (0xCB, 0x75) : (0, [ BIT(6, "L") ],         []),                                                      # BIT 6,L
+    (0xCB, 0x76) : (0, [],                      [ MR(indirect="HL", action=BIT(6)) ]),                    # BIT 6,(HL)
+    (0xCB, 0x77) : (0, [ BIT(6, "A") ],         []),                                                      # BIT 6,A
+    (0xCB, 0x78) : (0, [ BIT(7, "B") ],         []),                                                      # BIT 7,B
+    (0xCB, 0x79) : (0, [ BIT(7, "C") ],         []),                                                      # BIT 7,C
+    (0xCB, 0x7A) : (0, [ BIT(7, "D") ],         []),                                                      # BIT 7,D
+    (0xCB, 0x7B) : (0, [ BIT(7, "E") ],         []),                                                      # BIT 7,E
+    (0xCB, 0x7C) : (0, [ BIT(7, "H") ],         []),                                                      # BIT 7,H
+    (0xCB, 0x7D) : (0, [ BIT(7, "L") ],         []),                                                      # BIT 7,L
+    (0xCB, 0x7E) : (0, [],                      [ MR(indirect="HL", action=BIT(7)) ]),                    # BIT 7,(HL)
+    (0xCB, 0x7F) : (0, [ BIT(7, "A") ],         []),                                                      # BIT 7,A
+    (0xCB, 0x80) : (0, [ RES(0, "B") ],         []),                                                      # RES 0,B
+    (0xCB, 0x81) : (0, [ RES(0, "C") ],         []),                                                      # RES 0,C
+    (0xCB, 0x82) : (0, [ RES(0, "D") ],         []),                                                      # RES 0,D
+    (0xCB, 0x83) : (0, [ RES(0, "E") ],         []),                                                      # RES 0,E
+    (0xCB, 0x84) : (0, [ RES(0, "H") ],         []),                                                      # RES 0,H
+    (0xCB, 0x85) : (0, [ RES(0, "L") ],         []),                                                      # RES 0,L
+    (0xCB, 0x86) : (0, [],                      [ MR(indirect="HL", action=RES(0)), MW(indirect="HL") ]), # RES 0,(HL)
+    (0xCB, 0x87) : (0, [ RES(0, "A") ],         []),                                                      # RES 0,A
+    (0xCB, 0x88) : (0, [ RES(1, "B") ],         []),                                                      # RES 1,B
+    (0xCB, 0x89) : (0, [ RES(1, "C") ],         []),                                                      # RES 1,C
+    (0xCB, 0x8A) : (0, [ RES(1, "D") ],         []),                                                      # RES 1,D
+    (0xCB, 0x8B) : (0, [ RES(1, "E") ],         []),                                                      # RES 1,E
+    (0xCB, 0x8C) : (0, [ RES(1, "H") ],         []),                                                      # RES 1,H
+    (0xCB, 0x8D) : (0, [ RES(1, "L") ],         []),                                                      # RES 1,L
+    (0xCB, 0x8E) : (0, [],                      [ MR(indirect="HL", action=RES(1)), MW(indirect="HL") ]), # RES 1,(HL)
+    (0xCB, 0x8F) : (0, [ RES(1, "A") ],         []),                                                      # RES 1,A
+    (0xCB, 0x90) : (0, [ RES(2, "B") ],         []),                                                      # RES 2,B
+    (0xCB, 0x91) : (0, [ RES(2, "C") ],         []),                                                      # RES 2,C
+    (0xCB, 0x92) : (0, [ RES(2, "D") ],         []),                                                      # RES 2,D
+    (0xCB, 0x93) : (0, [ RES(2, "E") ],         []),                                                      # RES 2,E
+    (0xCB, 0x94) : (0, [ RES(2, "H") ],         []),                                                      # RES 2,H
+    (0xCB, 0x95) : (0, [ RES(2, "L") ],         []),                                                      # RES 2,L
+    (0xCB, 0x96) : (0, [],                      [ MR(indirect="HL", action=RES(2)), MW(indirect="HL") ]), # RES 2,(HL)
+    (0xCB, 0x97) : (0, [ RES(2, "A") ],         []),                                                      # RES 2,A
+    (0xCB, 0x98) : (0, [ RES(3, "B") ],         []),                                                      # RES 3,B
+    (0xCB, 0x99) : (0, [ RES(3, "C") ],         []),                                                      # RES 3,C
+    (0xCB, 0x9A) : (0, [ RES(3, "D") ],         []),                                                      # RES 3,D
+    (0xCB, 0x9B) : (0, [ RES(3, "E") ],         []),                                                      # RES 3,E
+    (0xCB, 0x9C) : (0, [ RES(3, "H") ],         []),                                                      # RES 3,H
+    (0xCB, 0x9D) : (0, [ RES(3, "L") ],         []),                                                      # RES 3,L
+    (0xCB, 0x9E) : (0, [],                      [ MR(indirect="HL", action=RES(3)), MW(indirect="HL") ]), # RES 3,(HL)
+    (0xCB, 0x9F) : (0, [ RES(3, "A") ],         []),                                                      # RES 3,A
+    (0xCB, 0xA0) : (0, [ RES(4, "B") ],         []),                                                      # RES 4,B
+    (0xCB, 0xA1) : (0, [ RES(4, "C") ],         []),                                                      # RES 4,C
+    (0xCB, 0xA2) : (0, [ RES(4, "D") ],         []),                                                      # RES 4,D
+    (0xCB, 0xA3) : (0, [ RES(4, "E") ],         []),                                                      # RES 4,E
+    (0xCB, 0xA4) : (0, [ RES(4, "H") ],         []),                                                      # RES 4,H
+    (0xCB, 0xA5) : (0, [ RES(4, "L") ],         []),                                                      # RES 4,L
+    (0xCB, 0xA6) : (0, [],                      [ MR(indirect="HL", action=RES(4)), MW(indirect="HL") ]), # RES 4,(HL)
+    (0xCB, 0xA7) : (0, [ RES(4, "A") ],         []),                                                      # RES 4,A
+    (0xCB, 0xA8) : (0, [ RES(5, "B") ],         []),                                                      # RES 5,B
+    (0xCB, 0xA9) : (0, [ RES(5, "C") ],         []),                                                      # RES 5,C
+    (0xCB, 0xAA) : (0, [ RES(5, "D") ],         []),                                                      # RES 5,D
+    (0xCB, 0xAB) : (0, [ RES(5, "E") ],         []),                                                      # RES 5,E
+    (0xCB, 0xAC) : (0, [ RES(5, "H") ],         []),                                                      # RES 5,H
+    (0xCB, 0xAD) : (0, [ RES(5, "L") ],         []),                                                      # RES 5,L
+    (0xCB, 0xAE) : (0, [],                      [ MR(indirect="HL", action=RES(5)), MW(indirect="HL") ]), # RES 5,(HL)
+    (0xCB, 0xAF) : (0, [ RES(5, "A") ],         []),                                                      # RES 5,A
+    (0xCB, 0xB0) : (0, [ RES(6, "B") ],         []),                                                      # RES 6,B
+    (0xCB, 0xB1) : (0, [ RES(6, "C") ],         []),                                                      # RES 6,C
+    (0xCB, 0xB2) : (0, [ RES(6, "D") ],         []),                                                      # RES 6,D
+    (0xCB, 0xB3) : (0, [ RES(6, "E") ],         []),                                                      # RES 6,E
+    (0xCB, 0xB4) : (0, [ RES(6, "H") ],         []),                                                      # RES 6,H
+    (0xCB, 0xB5) : (0, [ RES(6, "L") ],         []),                                                      # RES 6,L
+    (0xCB, 0xB6) : (0, [],                      [ MR(indirect="HL", action=RES(6)), MW(indirect="HL") ]), # RES 6,(HL)
+    (0xCB, 0xB7) : (0, [ RES(6, "A") ],         []),                                                      # RES 6,A
+    (0xCB, 0xB8) : (0, [ RES(7, "B") ],         []),                                                      # RES 7,B
+    (0xCB, 0xB9) : (0, [ RES(7, "C") ],         []),                                                      # RES 7,C
+    (0xCB, 0xBA) : (0, [ RES(7, "D") ],         []),                                                      # RES 7,D
+    (0xCB, 0xBB) : (0, [ RES(7, "E") ],         []),                                                      # RES 7,E
+    (0xCB, 0xBC) : (0, [ RES(7, "H") ],         []),                                                      # RES 7,H
+    (0xCB, 0xBD) : (0, [ RES(7, "L") ],         []),                                                      # RES 7,L
+    (0xCB, 0xBE) : (0, [],                      [ MR(indirect="HL", action=RES(7)), MW(indirect="HL") ]), # RES 7,(HL)
+    (0xCB, 0xBF) : (0, [ RES(7, "A") ],         []),                                                      # RES 7,A
+    (0xCB, 0xC0) : (0, [ SET(0, "B") ],         []),                                                      # SET 0,B
+    (0xCB, 0xC1) : (0, [ SET(0, "C") ],         []),                                                      # SET 0,C
+    (0xCB, 0xC2) : (0, [ SET(0, "D") ],         []),                                                      # SET 0,D
+    (0xCB, 0xC3) : (0, [ SET(0, "E") ],         []),                                                      # SET 0,E
+    (0xCB, 0xC4) : (0, [ SET(0, "H") ],         []),                                                      # SET 0,H
+    (0xCB, 0xC5) : (0, [ SET(0, "L") ],         []),                                                      # SET 0,L
+    (0xCB, 0xC6) : (0, [],                      [ MR(indirect="HL", action=SET(0)), MW(indirect="HL") ]), # SET 0,(HL)
+    (0xCB, 0xC7) : (0, [ SET(0, "A") ],         []),                                                      # SET 0,A
+    (0xCB, 0xC8) : (0, [ SET(1, "B") ],         []),                                                      # SET 1,B
+    (0xCB, 0xC9) : (0, [ SET(1, "C") ],         []),                                                      # SET 1,C
+    (0xCB, 0xCA) : (0, [ SET(1, "D") ],         []),                                                      # SET 1,D
+    (0xCB, 0xCB) : (0, [ SET(1, "E") ],         []),                                                      # SET 1,E
+    (0xCB, 0xCC) : (0, [ SET(1, "H") ],         []),                                                      # SET 1,H
+    (0xCB, 0xCD) : (0, [ SET(1, "L") ],         []),                                                      # SET 1,L
+    (0xCB, 0xCE) : (0, [],                      [ MR(indirect="HL", action=SET(1)), MW(indirect="HL") ]), # SET 1,(HL)
+    (0xCB, 0xCF) : (0, [ SET(1, "A") ],         []),                                                      # SET 1,A
+    (0xCB, 0xD0) : (0, [ SET(2, "B") ],         []),                                                      # SET 2,B
+    (0xCB, 0xD1) : (0, [ SET(2, "C") ],         []),                                                      # SET 2,C
+    (0xCB, 0xD2) : (0, [ SET(2, "D") ],         []),                                                      # SET 2,D
+    (0xCB, 0xD3) : (0, [ SET(2, "E") ],         []),                                                      # SET 2,E
+    (0xCB, 0xD4) : (0, [ SET(2, "H") ],         []),                                                      # SET 2,H
+    (0xCB, 0xD5) : (0, [ SET(2, "L") ],         []),                                                      # SET 2,L
+    (0xCB, 0xD6) : (0, [],                      [ MR(indirect="HL", action=SET(2)), MW(indirect="HL") ]), # SET 2,(HL)
+    (0xCB, 0xD7) : (0, [ SET(2, "A") ],         []),                                                      # SET 2,A
+    (0xCB, 0xD8) : (0, [ SET(3, "B") ],         []),                                                      # SET 3,B
+    (0xCB, 0xD9) : (0, [ SET(3, "C") ],         []),                                                      # SET 3,C
+    (0xCB, 0xDA) : (0, [ SET(3, "D") ],         []),                                                      # SET 3,D
+    (0xCB, 0xDB) : (0, [ SET(3, "E") ],         []),                                                      # SET 3,E
+    (0xCB, 0xDC) : (0, [ SET(3, "H") ],         []),                                                      # SET 3,H
+    (0xCB, 0xDD) : (0, [ SET(3, "L") ],         []),                                                      # SET 3,L
+    (0xCB, 0xDE) : (0, [],                      [ MR(indirect="HL", action=SET(3)), MW(indirect="HL") ]), # SET 3,(HL)
+    (0xCB, 0xDF) : (0, [ SET(3, "A") ],         []),                                                      # SET 3,A
+    (0xCB, 0xE0) : (0, [ SET(4, "B") ],         []),                                                      # SET 4,B
+    (0xCB, 0xE1) : (0, [ SET(4, "C") ],         []),                                                      # SET 4,C
+    (0xCB, 0xE2) : (0, [ SET(4, "D") ],         []),                                                      # SET 4,D
+    (0xCB, 0xE3) : (0, [ SET(4, "E") ],         []),                                                      # SET 4,E
+    (0xCB, 0xE4) : (0, [ SET(4, "H") ],         []),                                                      # SET 4,H
+    (0xCB, 0xE5) : (0, [ SET(4, "L") ],         []),                                                      # SET 4,L
+    (0xCB, 0xE6) : (0, [],                      [ MR(indirect="HL", action=SET(4)), MW(indirect="HL") ]), # SET 4,(HL)
+    (0xCB, 0xE7) : (0, [ SET(4, "A") ],         []),                                                      # SET 4,A
+    (0xCB, 0xE8) : (0, [ SET(5, "B") ],         []),                                                      # SET 5,B
+    (0xCB, 0xE9) : (0, [ SET(5, "C") ],         []),                                                      # SET 5,C
+    (0xCB, 0xEA) : (0, [ SET(5, "D") ],         []),                                                      # SET 5,D
+    (0xCB, 0xEB) : (0, [ SET(5, "E") ],         []),                                                      # SET 5,E
+    (0xCB, 0xEC) : (0, [ SET(5, "H") ],         []),                                                      # SET 5,H
+    (0xCB, 0xED) : (0, [ SET(5, "L") ],         []),                                                      # SET 5,L
+    (0xCB, 0xEE) : (0, [],                      [ MR(indirect="HL", action=SET(5)), MW(indirect="HL") ]), # SET 5,(HL)
+    (0xCB, 0xEF) : (0, [ SET(5, "A") ],         []),                                                      # SET 5,A
+    (0xCB, 0xF0) : (0, [ SET(6, "B") ],         []),                                                      # SET 6,B
+    (0xCB, 0xF1) : (0, [ SET(6, "C") ],         []),                                                      # SET 6,C
+    (0xCB, 0xF2) : (0, [ SET(6, "D") ],         []),                                                      # SET 6,D
+    (0xCB, 0xF3) : (0, [ SET(6, "E") ],         []),                                                      # SET 6,E
+    (0xCB, 0xF4) : (0, [ SET(6, "H") ],         []),                                                      # SET 6,H
+    (0xCB, 0xF5) : (0, [ SET(6, "L") ],         []),                                                      # SET 6,L
+    (0xCB, 0xF6) : (0, [],                      [ MR(indirect="HL", action=SET(6)), MW(indirect="HL") ]), # SET 6,(HL)
+    (0xCB, 0xF7) : (0, [ SET(6, "A") ],         []),                                                      # SET 6,A
+    (0xCB, 0xF8) : (0, [ SET(7, "B") ],         []),                                                      # SET 7,B
+    (0xCB, 0xF9) : (0, [ SET(7, "C") ],         []),                                                      # SET 7,C
+    (0xCB, 0xFA) : (0, [ SET(7, "D") ],         []),                                                      # SET 7,D
+    (0xCB, 0xFB) : (0, [ SET(7, "E") ],         []),                                                      # SET 7,E
+    (0xCB, 0xFC) : (0, [ SET(7, "H") ],         []),                                                      # SET 7,H
+    (0xCB, 0xFD) : (0, [ SET(7, "L") ],         []),                                                      # SET 7,L
+    (0xCB, 0xFE) : (0, [],                      [ MR(indirect="HL", action=SET(7)), MW(indirect="HL") ]), # SET 7,(HL)
+    (0xCB, 0xFF) : (0, [ SET(7, "A") ],         []),                                                      # SET 7,A
     (0xDD, 0x09) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.IXH)&0xF)+((state.cpu.reg.C+state.cpu.reg.IXL)>>8) > 0xF) else 0),
                  set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.IXH + ((state.cpu.reg.C+state.cpu.reg.IXL)>>8)),
                  LDr('IX', value=lambda state : (state.cpu.reg.IX + state.cpu.reg.BC)&0xFFFF) ],
@@ -1666,6 +1879,30 @@ INSTRUCTION_STATES = {
     (0xDD, 0xCB, 0x2E) : (0, [], [ MR(action=SRA(), incaddr=False), MW() ]),                          # SRA (IX+d)
     (0xDD, 0xCB, 0x36) : (0, [], [ MR(action=SL1(), incaddr=False), MW() ]),                          # SL1 (IX+d) (undocumemnted)
     (0xDD, 0xCB, 0x3E) : (0, [], [ MR(action=SRL(), incaddr=False), MW() ]),                          # SRA (IX+d)
+    (0xDD, 0xCB, 0x46) : (0, [], [ MR(action=BIT(0)) ]),                                              # BIT 0,(IX+d)
+    (0xDD, 0xCB, 0x4E) : (0, [], [ MR(action=BIT(1)) ]),                                              # BIT 1,(IX+d)
+    (0xDD, 0xCB, 0x56) : (0, [], [ MR(action=BIT(2)) ]),                                              # BIT 2,(IX+d)
+    (0xDD, 0xCB, 0x5E) : (0, [], [ MR(action=BIT(3)) ]),                                              # BIT 3,(IX+d)
+    (0xDD, 0xCB, 0x66) : (0, [], [ MR(action=BIT(4)) ]),                                              # BIT 4,(IX+d)
+    (0xDD, 0xCB, 0x6E) : (0, [], [ MR(action=BIT(5)) ]),                                              # BIT 5,(IX+d)
+    (0xDD, 0xCB, 0x76) : (0, [], [ MR(action=BIT(6)) ]),                                              # BIT 6,(IX+d)
+    (0xDD, 0xCB, 0x7E) : (0, [], [ MR(action=BIT(7)) ]),                                              # BIT 7,(IX+d)
+    (0xDD, 0xCB, 0x86) : (0, [], [ MR(action=RES(0), incaddr=False), MW() ]),                         # RES 0,(IX+d)
+    (0xDD, 0xCB, 0x8E) : (0, [], [ MR(action=RES(1), incaddr=False), MW() ]),                         # RES 1,(IX+d)
+    (0xDD, 0xCB, 0x96) : (0, [], [ MR(action=RES(2), incaddr=False), MW() ]),                         # RES 2,(IX+d)
+    (0xDD, 0xCB, 0x9E) : (0, [], [ MR(action=RES(3), incaddr=False), MW() ]),                         # RES 3,(IX+d)
+    (0xDD, 0xCB, 0xA6) : (0, [], [ MR(action=RES(4), incaddr=False), MW() ]),                         # RES 4,(IX+d)
+    (0xDD, 0xCB, 0xAE) : (0, [], [ MR(action=RES(5), incaddr=False), MW() ]),                         # RES 5,(IX+d)
+    (0xDD, 0xCB, 0xB6) : (0, [], [ MR(action=RES(6), incaddr=False), MW() ]),                         # RES 6,(IX+d)
+    (0xDD, 0xCB, 0xBE) : (0, [], [ MR(action=RES(7), incaddr=False), MW() ]),                         # RES 7,(IX+d)
+    (0xDD, 0xCB, 0xC6) : (0, [], [ MR(action=SET(0), incaddr=False), MW() ]),                         # SET 0,(IX+d)
+    (0xDD, 0xCB, 0xCE) : (0, [], [ MR(action=SET(1), incaddr=False), MW() ]),                         # SET 1,(IX+d)
+    (0xDD, 0xCB, 0xD6) : (0, [], [ MR(action=SET(2), incaddr=False), MW() ]),                         # SET 2,(IX+d)
+    (0xDD, 0xCB, 0xDE) : (0, [], [ MR(action=SET(3), incaddr=False), MW() ]),                         # SET 3,(IX+d)
+    (0xDD, 0xCB, 0xE6) : (0, [], [ MR(action=SET(4), incaddr=False), MW() ]),                         # SET 4,(IX+d)
+    (0xDD, 0xCB, 0xEE) : (0, [], [ MR(action=SET(5), incaddr=False), MW() ]),                         # SET 5,(IX+d)
+    (0xDD, 0xCB, 0xF6) : (0, [], [ MR(action=SET(6), incaddr=False), MW() ]),                         # SET 6,(IX+d)
+    (0xDD, 0xCB, 0xFE) : (0, [], [ MR(action=SET(7), incaddr=False), MW() ]),                         # SET 7,(IX+d)
 
     (0xFD, 0xCB, 0x06) : (0, [], [ MR(action=RLC(), incaddr=False), MW() ]),                          # RLC (IY+d)
     (0xFD, 0xCB, 0x0E) : (0, [], [ MR(action=RRC(), incaddr=False), MW() ]),                          # RRC (IY+d)
@@ -1675,6 +1912,30 @@ INSTRUCTION_STATES = {
     (0xFD, 0xCB, 0x2E) : (0, [], [ MR(action=SRA(), incaddr=False), MW() ]),                          # SRA (IY+d)
     (0xFD, 0xCB, 0x36) : (0, [], [ MR(action=SL1(), incaddr=False), MW() ]),                          # SL1 (IY+d) (undocumemnted)
     (0xFD, 0xCB, 0x3E) : (0, [], [ MR(action=SRL(), incaddr=False), MW() ]),                          # SRA (IY+d)
+    (0xFD, 0xCB, 0x46) : (0, [], [ MR(action=BIT(0)) ]),                                              # BIT 0,(IY+d)
+    (0xFD, 0xCB, 0x4E) : (0, [], [ MR(action=BIT(1)) ]),                                              # BIT 1,(IY+d)
+    (0xFD, 0xCB, 0x56) : (0, [], [ MR(action=BIT(2)) ]),                                              # BIT 2,(IY+d)
+    (0xFD, 0xCB, 0x5E) : (0, [], [ MR(action=BIT(3)) ]),                                              # BIT 3,(IY+d)
+    (0xFD, 0xCB, 0x66) : (0, [], [ MR(action=BIT(4)) ]),                                              # BIT 4,(IY+d)
+    (0xFD, 0xCB, 0x6E) : (0, [], [ MR(action=BIT(5)) ]),                                              # BIT 5,(IY+d)
+    (0xFD, 0xCB, 0x76) : (0, [], [ MR(action=BIT(6)) ]),                                              # BIT 6,(IY+d)
+    (0xFD, 0xCB, 0x7E) : (0, [], [ MR(action=BIT(7)) ]),                                              # BIT 7,(IY+d)
+    (0xFD, 0xCB, 0x86) : (0, [], [ MR(action=RES(0), incaddr=False), MW() ]),                         # RES 0,(IY+d)
+    (0xFD, 0xCB, 0x8E) : (0, [], [ MR(action=RES(1), incaddr=False), MW() ]),                         # RES 1,(IY+d)
+    (0xFD, 0xCB, 0x96) : (0, [], [ MR(action=RES(2), incaddr=False), MW() ]),                         # RES 2,(IY+d)
+    (0xFD, 0xCB, 0x9E) : (0, [], [ MR(action=RES(3), incaddr=False), MW() ]),                         # RES 3,(IY+d)
+    (0xFD, 0xCB, 0xA6) : (0, [], [ MR(action=RES(4), incaddr=False), MW() ]),                         # RES 4,(IY+d)
+    (0xFD, 0xCB, 0xAE) : (0, [], [ MR(action=RES(5), incaddr=False), MW() ]),                         # RES 5,(IY+d)
+    (0xFD, 0xCB, 0xB6) : (0, [], [ MR(action=RES(6), incaddr=False), MW() ]),                         # RES 6,(IY+d)
+    (0xFD, 0xCB, 0xBE) : (0, [], [ MR(action=RES(7), incaddr=False), MW() ]),                         # RES 7,(IY+d)
+    (0xFD, 0xCB, 0xC6) : (0, [], [ MR(action=SET(0), incaddr=False), MW() ]),                         # SET 0,(IY+d)
+    (0xFD, 0xCB, 0xCE) : (0, [], [ MR(action=SET(1), incaddr=False), MW() ]),                         # SET 1,(IY+d)
+    (0xFD, 0xCB, 0xD6) : (0, [], [ MR(action=SET(2), incaddr=False), MW() ]),                         # SET 2,(IY+d)
+    (0xFD, 0xCB, 0xDE) : (0, [], [ MR(action=SET(3), incaddr=False), MW() ]),                         # SET 3,(IY+d)
+    (0xFD, 0xCB, 0xE6) : (0, [], [ MR(action=SET(4), incaddr=False), MW() ]),                         # SET 4,(IY+d)
+    (0xFD, 0xCB, 0xEE) : (0, [], [ MR(action=SET(5), incaddr=False), MW() ]),                         # SET 5,(IY+d)
+    (0xFD, 0xCB, 0xF6) : (0, [], [ MR(action=SET(6), incaddr=False), MW() ]),                         # SET 6,(IY+d)
+    (0xFD, 0xCB, 0xFE) : (0, [], [ MR(action=SET(7), incaddr=False), MW() ]),                         # SET 7,(IY+d)
     }
 
 def decode_instruction(instruction):

@@ -1366,3 +1366,59 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_bit(self):
+        tests = []
+        for X in range(0,256):
+            for b in range(0,8):
+                f = ((1 - ((X >> b)&0x1))*0x44) + 0x10 + ((X&(1 << b))&0xA8)
+                for (reg, r) in [ ('B', 0x0), ('C', 0x1), ('D',0x2), ('E',0x3), ('H',0x4), ('L',0x5), ('A',0x7) ]:
+                    i = 0x40 + (b << 3) + r
+                    tests += [
+                        [ [ set_register_to(reg,X) ], [ 0xCB, i ], 8, [ expect_register_equal(reg, X), (F == f) ], "BIT {},{} (of 0x{:X})".format(b,reg,X) ],
+                    ]
+
+                tests += [
+                    [ [ HL(0x1BBC), M(0x1BBC, X) ], [ 0xCB, (0x46 + (b << 3)) ], 12, [ (M[0x1BBC] == X), (F == f) ], "BIT {},(HL) (of 0x{:X})".format(b,X) ],
+                    [ [ IX(0x1BB0), M(0x1BBC, X) ], [ 0xDD, 0xCB, 0xC, (0x46 + (b << 3)) ], 20, [ (M[0x1BBC] == X), (F == f) ], "BIT {},(IX+0C) (of 0x{:X})".format(b,X) ],
+                    [ [ IY(0x1BB0), M(0x1BBC, X) ], [ 0xFD, 0xCB, 0xC, (0x46 + (b << 3)) ], 20, [ (M[0x1BBC] == X), (F == f) ], "BIT {},(IY+0C) (of 0x{:X})".format(b,X) ],
+                ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_res(self):
+        tests = []
+        for b in range(0,8):
+            for (reg, r) in [ ('B', 0x0), ('C', 0x1), ('D',0x2), ('E',0x3), ('H',0x4), ('L',0x5), ('A',0x7) ]:
+                i = 0x80 + (b << 3) + r
+                tests += [
+                    [ [ set_register_to(reg,0xFF) ], [ 0xCB, i ], 8, [ expect_register_equal(reg, 0xFF - (1 << b)) ], "RES {},{}".format(b,reg) ],
+                ]
+
+            tests += [
+                [ [ HL(0x1BBC), M(0x1BBC, 0xFF) ], [ 0xCB, (0x86 + (b << 3)) ], 15, [ (M[0x1BBC] == (0xFF - (1 << b))) ], "RES {},(HL)".format(b) ],
+                [ [ IX(0x1BB0), M(0x1BBC, 0xFF) ], [ 0xDD, 0xCB, 0xC, (0x86 + (b << 3)) ], 23, [ (M[0x1BBC] == (0xFF - (1 << b))) ], "RES {},(IX+0C)".format(b) ],
+                [ [ IY(0x1BB0), M(0x1BBC, 0xFF) ], [ 0xFD, 0xCB, 0xC, (0x86 + (b << 3)) ], 23, [ (M[0x1BBC] == (0xFF - (1 << b))) ], "RES {},(IY+0C)".format(b) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_set(self):
+        tests = []
+        for b in range(0,8):
+            for (reg, r) in [ ('B', 0x0), ('C', 0x1), ('D',0x2), ('E',0x3), ('H',0x4), ('L',0x5), ('A',0x7) ]:
+                i = 0xC0 + (b << 3) + r
+                tests += [
+                    [ [ set_register_to(reg,0x00) ], [ 0xCB, i ], 8, [ expect_register_equal(reg, (1 << b)) ], "SET {},{}".format(b,reg) ],
+                ]
+
+            tests += [
+                [ [ HL(0x1BBC), M(0x1BBC, 0x00) ], [ 0xCB, (0xC6 + (b << 3)) ], 15, [ (M[0x1BBC] == (1 << b)) ], "SET {},(HL)".format(b) ],
+                [ [ IX(0x1BB0), M(0x1BBC, 0x00) ], [ 0xDD, 0xCB, 0xC, (0xC6 + (b << 3)) ], 23, [ (M[0x1BBC] == (1 << b)) ], "SET {},(IX+0C)".format(b) ],
+                [ [ IY(0x1BB0), M(0x1BBC, 0x00) ], [ 0xFD, 0xCB, 0xC, (0xC6 + (b << 3)) ], 23, [ (M[0x1BBC] == (1 << b)) ], "SET {},(IY+0C)".format(b) ],
+            ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
