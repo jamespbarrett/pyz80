@@ -1458,3 +1458,13 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_djnz(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ B(0x02) ], [ 0x10, 0x08 ], 13, [ (PC == 0x000A), (B == 0x01) ], "DJNZ 0AH (with B == 0x02)" ],
+            [ [ B(0x01) ], [ 0x10, 0x08 ],  8, [ (PC == 0x0002), (B == 0x00) ], "DJNZ 0AH (with B == 0x01)" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)

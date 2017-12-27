@@ -45,14 +45,14 @@ def JR(value=None, key="value"):
 def LDr(reg, value=None, key="value"):
     """Load into the specified register"""
     def _inner(state, *args):
-        if len(args) > 0:
-            v = args[0]
-        elif value is None:
-            v = state.kwargs[key]
-        elif callable(value):
+        if callable(value):
             v = value(state, *args)
-        else:
+        elif value is not None:
             v = value
+        elif len(args) > 0:
+            v = args[0]
+        else:
+            v = state.kwargs[key]
         setattr(state.cpu.reg, reg, v)
     return _inner
 
@@ -860,6 +860,10 @@ INSTRUCTION_STATES = {
     0x0F : (0, [ set_flags("--503-0C", value=lambda state : (state.cpu.reg.A >> 1) | ((state.cpu.reg.A&0x01) << 7) | ((state.cpu.reg.A&0x01) << 8), dest="A") ],
                                     []),                                                              # RRCA
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ]),                          # LD A,(BC)
+    0x10 : (1, [],                  [ OD(action=do_each(LDr("B", value=lambda state,v: (state.cpu.reg.B-1)&0xFF),
+                                                        on_condition(lambda state,v : (state.cpu.reg.B == 0x00), early_abort()),
+                                                        RRr("value"))),
+                                      IO(5, True, action=JR()) ]),                                    # DJNZ
     0x11 : (0, [],                  [ OD(), OD(action=LDr('DE')) ]),                                  # LD DE,nn
     0x12 : (0, [],                  [ MW(indirect="DE", source="A") ]),                               # LD (DE),A
     0x13 : (0, [ LDr('DE', value=lambda state : (state.cpu.reg.DE + 1)&0xFFFF) ],
