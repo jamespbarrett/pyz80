@@ -1220,6 +1220,8 @@ INSTRUCTION_STATES = {
                                                                  ) ] ),                               # CP (HL)
     0xBF : (0, [ set_flags("SZ5H3V1C", value=lambda state : state.cpu.reg.A - state.cpu.reg.A, key="value"), ],
                                     [] ),                                                             # CP A
+    0xC0 : (1, [ on_flag('Z', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET NZ
     0xC1 : (0, [],                  [ SR(), SR(action=LDr("BC")) ]),                                  # POP BC
     0xC2 : (0, [],                  [ OD(), OD(action=unless_flag("Z",JP())) ]),                      # JP NZ,nn
     0xC3 : (0, [],                  [ OD(), OD(action=JP()) ]),                                       # JP nn
@@ -1232,6 +1234,9 @@ INSTRUCTION_STATES = {
                                                 set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v,
                                                         dest="A"))) ] ),                              # ADD n
+    0xC8 : (1, [ unless_flag('Z', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET NZ
+    0xC9 : (0, [],                  [ SR(), SR(action=JP()) ]),                                       # RET
     0xCA : (0, [],                  [ OD(), OD(action=on_flag("Z",JP())) ]),                          # JP Z,nn
     0xCB : (0, [],                  [ OCF(prefix=0xCB) ]),                                            # -- Byte one of multibyte OPCODE
     0xCC : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
@@ -1243,6 +1248,8 @@ INSTRUCTION_STATES = {
                                                         set_flags("SZ5H3V0C",
                                                         value=lambda state, v : state.cpu.reg.A + v + state.cpu.reg.getflag('C'),
                                                         dest="A"))) ] ),                              # ADC n
+    0xD0 : (1, [ on_flag('C', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET NC
     0xD1 : (0, [],                  [ SR(), SR(action=LDr("DE")) ]),                                  # POP DE
     0xD2 : (0, [],                  [ OD(), OD(action=unless_flag("C",JP())) ]),                      # JP NC,nn
     0xD4 : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
@@ -1253,8 +1260,10 @@ INSTRUCTION_STATES = {
                                                 force_flag('H', lambda  state,v : 1 if (((state.cpu.reg.A)&0xF)-(v&0xF) < 0x0) else 0),
                                                 set_flags("SZ5H3V1C",
                                                         value=lambda state, v : state.cpu.reg.A - v,
-                                                        dest="A"))) ] ),                               # SUB n
-    0xDA : (0, [],                  [ OD(), OD(action=on_flag("C",JP())) ]),                           # JP C,nn
+                                                        dest="A"))) ] ),                              # SUB n
+    0xD8 : (1, [ unless_flag('C', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET C
+    0xDA : (0, [],                  [ OD(), OD(action=on_flag("C",JP())) ]),                          # JP C,nn
     0xDC : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
                                                               unless_flag("C", early_abort()))),
                                       SW(source="PCH"), SW(source="PCL", action=JP(key="target")) ]), # CALL C,nn
@@ -1264,6 +1273,8 @@ INSTRUCTION_STATES = {
                                                         value=lambda state, v : state.cpu.reg.A - v - state.cpu.reg.getflag('C'),
                                                         dest="A"))) ] ),                               # SBC n
     0xD9 : (0, [ EXX() ],           []),                                                              # EXX
+    0xE0 : (1, [ on_flag('P', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET PO
     0xE1 : (0, [],                  [ SR(), SR(action=LDr("HL")) ]),                                  # POP HL
     0xE2 : (0, [],                  [ OD(), OD(action=unless_flag("P",JP())) ]),                      # JP PO,nn
     0xE3 : (0, [ RRr('H','H'), RRr('L','L') ],  [ SR(), SR(action=LDr("HL"), extra=1),
@@ -1275,6 +1286,8 @@ INSTRUCTION_STATES = {
     0xE6 : (0, [],                  [ OD(action=set_flags("SZ513P00",
                                                         value=lambda state, v : state.cpu.reg.A & v,
                                                         dest="A")) ] ),                               # AND n
+    0xE8 : (1, [ unless_flag('P', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET PE
     0xE9 : (0, [ JP(source="HL") ], []),                                                              # JP (HL)
     0xEC : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
                                                               unless_flag("P", early_abort()))),
@@ -1286,6 +1299,8 @@ INSTRUCTION_STATES = {
     0xEB : (0, [ EX('DE', 'HL') ],  []),                                                              # EX DE,HL
     0xED : (0, [],                  [ OCF(prefix=0xED) ]),                                            # -- Byte one of multibyte OPCODE
     0xDD : (0, [],                  [ OCF(prefix=0xDD) ]),                                            # -- Byte one of multibyte OPCODE
+    0xF0 : (1, [ on_flag('S', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET P
     0xF1 : (0, [],                  [ SR(), SR(action=LDr("AF")) ]),                                  # POP AF
     0xF2 : (0, [],                  [ OD(), OD(action=unless_flag("S",JP())) ]),                      # JP P,nn
     0xF4 : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
@@ -1295,6 +1310,8 @@ INSTRUCTION_STATES = {
     0xF6 : (0, [],                  [ OD(action=set_flags("SZ503P00",
                                                         value=lambda state, v : state.cpu.reg.A | v,
                                                         dest="A")) ] ),                               # OR n
+    0xF8 : (1, [ unless_flag('S', early_abort()) ],
+                                    [ SR(), SR(action=JP()) ]),                                       # RET M
     0xF9 : (0, [ LDrs('SP', 'HL') ], []),                                                             # LD SP,HL
     0xFA : (0, [],                  [ OD(), OD(action=on_flag("S",JP())) ]),                          # JP M,nn
     0xFC : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
@@ -1713,11 +1730,13 @@ INSTRUCTION_STATES = {
                                             MW(source="C"), MW(source="B") ]),                        # LD (nn),BC
     (0xED, 0x44) : (0, [ set_flags("SZ513V11", value=lambda state : (-state.cpu.reg.A)&0xFF, dest='A') ],
                                          []),                                                         # NEG
+    (0xED, 0x45) : (0, [],               [ SR(), SR(action=JP()) ] ),                                 # RETN
     (0xED, 0x47) : (0, [LDrs('I', 'A')], []),                                                         # LD I,A
     (0xED, 0x4B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('C')), MR(action=LDr('B')) ]),              # LD BC,(nn)
     (0xED, 0x4A) : (0, ADC16('BC'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,BC
+    (0xED, 0x4D) : (0, [],               [ SR(), SR(action=JP()) ] ),                                 # RETI
     (0xED, 0x4F) : (0, [LDrs('R', 'A'),], []),                                                        # LD R,A
     (0xED, 0x52) : (0, SBC16('DE'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,DE
     (0xED, 0x53) : (0, [],                [ OD(key="address"),
