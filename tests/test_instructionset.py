@@ -379,15 +379,6 @@ class TestInstructionSet(unittest.TestCase):
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
 
-    def test_jp(self):
-        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
-        tests = [
-            [ [], [ 0xC3, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "PUSH AF" ],
-            ]
-
-        for (pre, instructions, t_cycles, post, name) in tests:
-            self.execute_instructions(pre, instructions, t_cycles, post, name)
-
     def test_ex(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
@@ -1419,6 +1410,51 @@ class TestInstructionSet(unittest.TestCase):
                 [ [ IX(0x1BB0), M(0x1BBC, 0x00) ], [ 0xDD, 0xCB, 0xC, (0xC6 + (b << 3)) ], 23, [ (M[0x1BBC] == (1 << b)) ], "SET {},(IX+0C)".format(b) ],
                 [ [ IY(0x1BB0), M(0x1BBC, 0x00) ], [ 0xFD, 0xCB, 0xC, (0xC6 + (b << 3)) ], 23, [ (M[0x1BBC] == (1 << b)) ], "SET {},(IY+0C)".format(b) ],
             ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_jp(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [],             [ 0xC3, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP 01BBCH" ],
+            [ [ F(0x00) ],    [ 0xDA, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP C,01BBCH (no jump)" ],
+            [ [ F(0x01) ],    [ 0xDA, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP C,01BBCH (jump)" ],
+            [ [ F(0x01) ],    [ 0xD2, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP NC,01BBCH (no jump)" ],
+            [ [ F(0x00) ],    [ 0xD2, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP NC,01BBCH (jump)" ],
+            [ [ F(0x00) ],    [ 0xCA, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP Z,01BBCH (no jump)" ],
+            [ [ F(0x40) ],    [ 0xCA, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP Z,01BBCH (jump)" ],
+            [ [ F(0x40) ],    [ 0xC2, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP NZ,01BBCH (no jump)" ],
+            [ [ F(0x00) ],    [ 0xC2, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP NZ,01BBCH (jump)" ],
+            [ [ F(0x00) ],    [ 0xEA, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP PE,01BBCH (no jump)" ],
+            [ [ F(0x04) ],    [ 0xEA, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP PE,01BBCH (jump)" ],
+            [ [ F(0x04) ],    [ 0xE2, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP PO,01BBCH (no jump)" ],
+            [ [ F(0x00) ],    [ 0xE2, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP PO,01BBCH (jump)" ],
+            [ [ F(0x00) ],    [ 0xFA, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP M,01BBCH (no jump)" ],
+            [ [ F(0x80) ],    [ 0xFA, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP M,01BBCH (jump)" ],
+            [ [ F(0x80) ],    [ 0xF2, 0xBC, 0x1B ], 10, [ (PC == 0x0003) ], "JP P,01BBCH (no jump)" ],
+            [ [ F(0x00) ],    [ 0xF2, 0xBC, 0x1B ], 10, [ (PC == 0x1BBC) ], "JP P,01BBCH (jump)" ],
+            [ [ HL(0x1BBC) ], [ 0xE9 ],              4, [ (PC == 0x1BBC) ], "JP (HL)" ],
+            [ [ IX(0x1BBC) ], [ 0xDD, 0xE9 ],        8, [ (PC == 0x1BBC) ], "JP (IX)" ],
+            [ [ IY(0x1BBC) ], [ 0xFD, 0xE9 ],        8, [ (PC == 0x1BBC) ], "JP (IY)" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_jr(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [],          [ 0x18, 0x08 ], 12, [ (PC == 0x000A) ], "JR 0AH" ],
+            [ [ F(0x00) ], [ 0x38, 0x08 ],  7, [ (PC == 0x0002) ], "JR C,0AH (no jump)" ],
+            [ [ F(0x01) ], [ 0x38, 0x08 ], 12, [ (PC == 0x000A) ], "JR C,0AH (jump)" ],
+            [ [ F(0x01) ], [ 0x30, 0x08 ],  7, [ (PC == 0x0002) ], "JR NC,0AH (no jump)" ],
+            [ [ F(0x00) ], [ 0x30, 0x08 ], 12, [ (PC == 0x000A) ], "JR NC,0AH (jump)" ],
+            [ [ F(0x00) ], [ 0x28, 0x08 ],  7, [ (PC == 0x0002) ], "JR Z,0AH (no jump)" ],
+            [ [ F(0x40) ], [ 0x28, 0x08 ], 12, [ (PC == 0x000A) ], "JR Z,0AH (jump)" ],
+            [ [ F(0x40) ], [ 0x20, 0x08 ],  7, [ (PC == 0x0002) ], "JR NZ,0AH (no jump)" ],
+            [ [ F(0x00) ], [ 0x20, 0x08 ], 12, [ (PC == 0x000A) ], "JR NZ,0AH (jump)" ],
+        ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
