@@ -124,8 +124,30 @@ class _IN(object):
             tc.assertEqual(self.device.high, other, msg="""[ {} ] Expected most recent high address on input port to be 0x{:X}, but actually 0x{:X}""".format(name, other, self.device.high))
         return _inner
 
+class DummyOutput(Device):
+    def __init__(self):
+        self.data = 0x00
+        self.high = 0x00
+        super(DummyOutput, self).__init__()
+    
+    def responds_to_port(self, port):
+        return (port == 0xFA)
+
+    def write(self, address, value):
+        self.data = value
+        self.high = address
+
+class _OUT(object):
+    def __init__(self):
+        self.device = DummyOutput()
+
+    def __eq__(self, other):
+        def _inner(tc, cpu, name):
+            tc.assertEqual((self.device.high, self.device.data), other, msg="""[ {} ] Expected most recent high address and data on input port to be (0x{:X},0x{:X}) but actually (0x{:X},0x{:X})""".format(name, other[0], other[1], self.device.high, self.device.data))
+        return _inner
 
 IN = _IN()
+OUT = _OUT()
 F = FLAG()
 M = MEM()
 A = REG('A')
@@ -180,8 +202,10 @@ class TestInstructionSet(unittest.TestCase):
     def execute_instructions(self, pre, instructions, t_cycles, post, name):
         IN.device.data = 0x00
         IN.device.high = 0x00
+        OUT.device.data = 0x00
+        OUT.device.high = 0x00
         membus = MemoryBus()
-        iobus  = IOBus([ IN.device ])
+        iobus  = IOBus([ IN.device, OUT.device ])
         cpu    = Z80CPU(iobus, membus)
 
         for n in range(0,len(instructions)):
@@ -1627,6 +1651,65 @@ class TestInstructionSet(unittest.TestCase):
             [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xBA ], 21, [ (PC == 0x00), (M[0x1BBC] == 0xAB), (IN == 0x02), (HL == 0x1BBB), (B == 0x01), (F == 0x00) ], "INIR" ],
             [ [ IN(0xAB), HL(0x1BBC), B(0x1), C(0xFE) ], [ 0xED, 0xBA ], 16, [ (PC == 0x02), (M[0x1BBC] == 0xAB), (IN == 0x01), (HL == 0x1BBB), (B == 0x00), (F == 0x44) ], "INIR" ],
             [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xBA ], 37, [ (PC == 0x02), (M[0x1BBC] == 0xAB), (M[0x1BBB] == 0xAB), (IN == 0x01), (HL == 0x1BBA), (B == 0x00), (F == 0x44)], "INIR" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_out(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ A(0x55) ],                   [ 0xD3, 0xFA ], 11, [ (OUT == (0x55, 0x55)) ], "OUT (FEH),A" ],
+            [ [ B(0x55), C(0xFA) ],          [ 0xED, 0x41 ], 12, [ (OUT == (0x55, 0x55)) ], "OUT (C),B" ],
+            [ [ B(0x55), C(0xFA) ],          [ 0xED, 0x49 ], 12, [ (OUT == (0x55, 0xFA)) ], "OUT (C),C" ],
+            [ [ B(0x55), C(0xFA), D(0xAB) ], [ 0xED, 0x51 ], 12, [ (OUT == (0x55, 0xAB)) ], "OUT (C),D" ],
+            [ [ B(0x55), C(0xFA), E(0xAB) ], [ 0xED, 0x59 ], 12, [ (OUT == (0x55, 0xAB)) ], "OUT (C),E" ],
+            [ [ B(0x55), C(0xFA), H(0xAB) ], [ 0xED, 0x61 ], 12, [ (OUT == (0x55, 0xAB)) ], "OUT (C),H" ],
+            [ [ B(0x55), C(0xFA), L(0xAB) ], [ 0xED, 0x69 ], 12, [ (OUT == (0x55, 0xAB)) ], "OUT (C),L" ],
+            [ [ B(0x55), C(0xFA), F(0xAB) ], [ 0xED, 0x71 ], 12, [ (OUT == (0x55, 0xAB)) ], "OUT (C),F" ],
+            [ [ B(0x55), C(0xFA), A(0xAB) ], [ 0xED, 0x79 ], 12, [ (OUT == (0x55, 0xAB)) ], "OUT (C),A" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_outi(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), B(0x2), C(0xFA), M(0x1BBC,0xAB) ], [ 0xED, 0xA3 ], 16, [ (OUT == (0x02,0xAB)), (HL == 0x1BBD), (B == 0x01), (F == 0x00) ], "OUTI" ],
+            [ [ HL(0x1BBC), B(0x1), C(0xFA), M(0x1BBC,0xAB) ], [ 0xED, 0xA3 ], 16, [ (OUT == (0x01,0xAB)), (HL == 0x1BBD), (B == 0x00), (F == 0x44) ], "OUTI" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_outir(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), B(0x2), C(0xFA), M(0x1BBC,0xAB) ],                 [ 0xED, 0xB3 ], 21, [ (PC == 0x00), (OUT == (0x02,0xAB)), (HL == 0x1BBD), (B == 0x01), (F == 0x00) ], "OUTIR" ],
+            [ [ HL(0x1BBC), B(0x1), C(0xFA), M(0x1BBC,0xAB) ],                 [ 0xED, 0xB3 ], 16, [ (PC == 0x02), (OUT == (0x01,0xAB)), (HL == 0x1BBD), (B == 0x00), (F == 0x44) ], "OUTIR" ],
+            [ [ HL(0x1BBC), B(0x2), C(0xFA), M(0x1BBC,0xAB), M(0x1BBD,0xCD) ], [ 0xED, 0xB3 ], 37, [ (PC == 0x02), (OUT == (0x01,0xCD)), (HL == 0x1BBE), (B == 0x00), (F == 0x44) ], "OUTIR" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_outd(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), B(0x2), C(0xFA), M(0x1BBC,0xAB) ], [ 0xED, 0xAB ], 16, [ (OUT == (0x02,0xAB)), (HL == 0x1BBB), (B == 0x01), (F == 0x00) ], "OUTD" ],
+            [ [ HL(0x1BBC), B(0x1), C(0xFA), M(0x1BBC,0xAB) ], [ 0xED, 0xAB ], 16, [ (OUT == (0x01,0xAB)), (HL == 0x1BBB), (B == 0x00), (F == 0x44) ], "OUTD" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_outdr(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ HL(0x1BBC), B(0x2), C(0xFA), M(0x1BBC,0xAB) ],                 [ 0xED, 0xBB ], 21, [ (PC == 0x00), (OUT == (0x02,0xAB)), (HL == 0x1BBB), (B == 0x01), (F == 0x00) ], "OUTDR" ],
+            [ [ HL(0x1BBC), B(0x1), C(0xFA), M(0x1BBC,0xAB) ],                 [ 0xED, 0xBB ], 16, [ (PC == 0x02), (OUT == (0x01,0xAB)), (HL == 0x1BBB), (B == 0x00), (F == 0x44) ], "OUTDR" ],
+            [ [ HL(0x1BBC), B(0x2), C(0xFA), M(0x1BBC,0xAB), M(0x1BBB,0xCD) ], [ 0xED, 0xBB ], 37, [ (PC == 0x02), (OUT == (0x01,0xCD)), (HL == 0x1BBA), (B == 0x00), (F == 0x44) ], "OUTDR" ],
         ]
 
         for (pre, instructions, t_cycles, post, name) in tests:

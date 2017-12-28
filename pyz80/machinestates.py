@@ -735,7 +735,7 @@ def IO(ticks, locked, transform=None, action=None, key="value"):
 
 def PR(high=None, low=None, action=None, dest=None):
     class _PR(MachineState):
-        """This state fetches a data byte from memory at a specified address (possibly using register indirect or indexed addressing):
+        """This state fetches a data byte from an output port:
         Initialisation Parameters:
         - Optionally: 'high' the register from which the high address line byte should be taken
         - Optionally: 'low' the register from which the high address line byte should be taken
@@ -790,6 +790,66 @@ def PR(high=None, low=None, action=None, dest=None):
             raise StopIteration
 
     return _PR
+
+def PW(high=None, low=None, action=None, source=None):
+    class _PW(MachineState):
+        """This state writes a data byte to an output port:
+        Initialisation Parameters:
+        - Optionally: 'high' the register from which the high address line byte should be taken
+        - Optionally: 'low' the register from which the high address line byte should be taken
+        - Optionally: 'source' the name of the register to take the value from (otherwise from kwargs)
+        - Optionally: 'action' a method which takes a two parameters, the state and a single integer. 
+        It will be called with the final value of 'value' as the last operation in the state. 
+        Args In:
+        - Optionally: 'address' a single integer cascaded from a previous state, used as the low byte of the address
+        - Optionally: 'value' a single integer cascaded from a previous state, used as the value to write
+        Args Out:
+        - 'value' : the contents of the memory read, cascaded to the next state
+        Side Effects:
+        - Calls 'action'
+        Returned Values:
+        - None
+        Time Taken:
+        - 4 clock cycles"""
+
+        def __init__(self):
+            self.high   = high
+            self.low    = low
+            self.source = source
+            self.action = action
+            super(_PW, self).__init__()
+
+        def fetchlocked(self):
+            return True
+
+        def run(self):
+            if self.low is not None:
+                low = getattr(self.cpu.reg, self.low)
+            else:
+                low = (self.kwargs['address'])&0xFF
+
+            if self.high is not None:
+                high = getattr(self.cpu.reg, self.high)
+            else:
+                high = 0x00
+            yield
+
+            if self.source is not None:
+                D = getattr(self.cpu.reg, self.source)
+            else:
+                D = (self.kwargs['value'])&0xFF
+            yield
+
+            self.cpu.iobus.write(low, high, D)
+            yield
+
+            self.kwargs['value'] = D
+
+            if callable(self.action):
+                self.action(self, D)
+            raise StopIteration
+
+    return _PW
 
 def ADC16(reg):
     """This instruction gets messy in the table, so we use this function to template it"""
@@ -1312,6 +1372,7 @@ INSTRUCTION_STATES = {
                                     [ SR(), SR(action=JP()) ]),                                       # RET NC
     0xD1 : (0, [],                  [ SR(), SR(action=LDr("DE")) ]),                                  # POP DE
     0xD2 : (0, [],                  [ OD(), OD(action=unless_flag("C",JP())) ]),                      # JP NC,nn
+    0xD3 : (0, [],                  [ OD(key="address"), PW(high="A", source="A") ]),                 # OUT (n),A
     0xD4 : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
                                                               on_flag("C", early_abort()))),
                                       SW(source="PCH"), SW(source="PCL", action=JP(key="target")) ]), # CALL NC,nn
@@ -1792,6 +1853,7 @@ INSTRUCTION_STATES = {
     (0xDD, 0xF9) : (0, [LDrs('SP','IX'),],[]),                                                        # LD SP,IX
     (0xED, 0x40) : (0, [],                [ PR(high="B", low="C", dest="B",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN B,(C)
+    (0xED, 0x41) : (0, [],                [ PW(high="B", low="C", source="B") ]),                     # OUT (C),B
     (0xED, 0x42) : (0, SBC16('BC'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,BC
     (0xED, 0x43) : (0, [],                [ OD(key="address"),
                                             OD(key="address",
@@ -1803,6 +1865,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x47) : (0, [LDrs('I', 'A')], []),                                                         # LD I,A
     (0xED, 0x48) : (0, [],                [ PR(high="B", low="C", dest="C",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN C,(C)
+    (0xED, 0x49) : (0, [],                [ PW(high="B", low="C", source="C") ]),                     # OUT (C),C
     (0xED, 0x4B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('C')), MR(action=LDr('B')) ]),              # LD BC,(nn)
@@ -1811,6 +1874,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x4F) : (0, [LDrs('R', 'A'),], []),                                                        # LD R,A
     (0xED, 0x50) : (0, [],                [ PR(high="B", low="C", dest="D",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN D,(C)
+    (0xED, 0x51) : (0, [],                [ PW(high="B", low="C", source="D") ]),                     # OUT (C),D
     (0xED, 0x52) : (0, SBC16('DE'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,DE
     (0xED, 0x53) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
@@ -1819,6 +1883,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x57) : (0, [LDrs('A', 'I'), set_flags("SZ503*0-", source='I') ], []),                     # LD A,I
     (0xED, 0x58) : (0, [],                [ PR(high="B", low="C", dest="E",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN E,(C)
+    (0xED, 0x59) : (0, [],                [ PW(high="B", low="C", source="E") ]),                     # OUT (C),E
     (0xED, 0x5A) : (0, ADC16('DE'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,DE
     (0xED, 0x5B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
@@ -1826,6 +1891,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x5F) : (0, [LDrs('A', 'R'), set_flags("SZ503*0-", source='R') ], []),                     # LD A,R
     (0xED, 0x60) : (0, [],                [ PR(high="B", low="C", dest="H",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN H,(C)
+    (0xED, 0x61) : (0, [],                [ PW(high="B", low="C", source="H") ]),                     # OUT (C),H
     (0xED, 0x62) : (0, SBC16('HL'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,HL
     (0xED, 0x67) : (0, [],               [ MR(indirect="HL",
                                               action=do_each(
@@ -1835,6 +1901,7 @@ INSTRUCTION_STATES = {
                                             MW(indirect="HL") ] ),                                    # RRD
     (0xED, 0x68) : (0, [],               [ PR(high="B", low="C", dest="L",
                                                   action=set_flags("SZ503P0-")) ]),                   # IN L,(C)
+    (0xED, 0x69) : (0, [],                [ PW(high="B", low="C", source="L") ]),                     # OUT (C),L
     (0xED, 0x6A) : (0, ADC16('HL'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,HL
     (0xED, 0x6F) : (0, [],               [ MR(indirect="HL",
                                               action=do_each(
@@ -1844,6 +1911,7 @@ INSTRUCTION_STATES = {
                                             MW(indirect="HL") ] ),                                    # RLD
     (0xED, 0x70) : (0, [],                [ PR(high="B", low="C", dest="F",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN F,(C) (undocumented)
+    (0xED, 0x71) : (0, [],                [ PW(high="B", low="C", source="F") ]),                     # OUT (C),F (undocumented)
     (0xED, 0x72) : (0, SBC16('SP'),      [ IO(4, True), IO(3, True) ] ),                              # SBC HL,SP
     (0xED, 0x73) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
@@ -1851,6 +1919,7 @@ INSTRUCTION_STATES = {
                                             MW(source="SPH") ]),                                      # LD (nn),SP
     (0xED, 0x78) : (0, [],                [ PR(high="B", low="C", dest="A",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN A,(C)
+    (0xED, 0x79) : (0, [],                [ PW(high="B", low="C", source="A") ]),                     # OUT (C),A
     (0xED, 0x7A) : (0, ADC16('SP'),      [ IO(4, True), IO(3, True) ] ),                              # ADC HL,SP
     (0xED, 0x7B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
@@ -1875,6 +1944,12 @@ INSTRUCTION_STATES = {
                                                               dec("B"),
                                                               set_flags("SZ503P0-",
                                                                         source="B"))) ]),             # INI
+    (0xED, 0xA3) : (0, [],                [ MR(indirect="HL"),
+                                            PW(low="C", high="B",
+                                               action=do_each(inc("HL"),
+                                                              dec("B"),
+                                                              set_flags("SZ503P0-",
+                                                                        source="B"))) ]),             # OUTI
     (0xED, 0xA8) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
@@ -1895,6 +1970,12 @@ INSTRUCTION_STATES = {
                                                               dec("B"),
                                                               set_flags("SZ503P0-",
                                                                         source="B"))) ]),             # IND
+    (0xED, 0xAB) : (0, [],                [ MR(indirect="HL"),
+                                            PW(low="C", high="B",
+                                               action=do_each(dec("HL"),
+                                                              dec("B"),
+                                                              set_flags("SZ503P0-",
+                                                                        source="B"))) ]),             # OUT
     (0xED, 0xB0) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
@@ -1922,6 +2003,14 @@ INSTRUCTION_STATES = {
                                                                         source="B"),
                                                               on_flag('Z', early_abort()))),
                                             IO(5, True, action=do_each(dec("PC"), dec("PC")))]),  # INIR
+    (0xED, 0xB3) : (0, [],                [ MR(indirect="HL"),
+                                            PW(low="C", high="B",
+                                               action=do_each(inc("HL"),
+                                                              dec("B"),
+                                                              set_flags("SZ503P0-",
+                                                                        source="B"),
+                                                              on_flag('Z', early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC")))]),   # OUTIR
     (0xED, 0xB8) : (0, [],                [ MR(indirect="HL"),
                                             MW(indirect="DE",
                                                 extra=2,
@@ -1949,6 +2038,14 @@ INSTRUCTION_STATES = {
                                                                         source="B"),
                                                               on_flag('Z', early_abort()))),
                                             IO(5, True, action=do_each(dec("PC"), dec("PC")))]),  # INDR
+    (0xED, 0xBB) : (0, [],                [ MR(indirect="HL"),
+                                            PW(low="C", high="B",
+                                               action=do_each(dec("HL"),
+                                                              dec("B"),
+                                                              set_flags("SZ503P0-",
+                                                                        source="B"),
+                                                              on_flag('Z', early_abort()))),
+                                            IO(5, True, action=do_each(dec("PC"), dec("PC")))]),   # OUTDR
     (0xFD, 0x09) : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.B)&0xF)+((state.cpu.reg.IYH)&0xF)+((state.cpu.reg.C+state.cpu.reg.IYL)>>8) > 0xF) else 0),
                  set_flags("--5-3-0C", value=lambda state : state.cpu.reg.B + state.cpu.reg.IYH + ((state.cpu.reg.C+state.cpu.reg.IYL)>>8)),
                  LDr('IY', value=lambda state : (state.cpu.reg.IY + state.cpu.reg.BC)&0xFFFF) ],
