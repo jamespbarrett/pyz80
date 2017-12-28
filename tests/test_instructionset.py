@@ -6,7 +6,7 @@ from pyz80.machinestates import INSTRUCTION_STATES
 
 from pyz80.cpu import *
 from pyz80.memorybus import MemoryBus, ROM
-from pyz80.iobus import IOBus
+from pyz80.iobus import IOBus, Device
 
 def set_register_to(reg, val):
     def _inner(tc, cpu, name):
@@ -96,6 +96,36 @@ class REG(object):
     def __eq__(self, other):
         return expect_register_equal(self.r, other)
 
+class DummyInput(Device):
+    def __init__(self):
+        self.data = 0x00
+        self.high = 0x00
+        super(DummyInput, self).__init__()
+    
+    def responds_to_port(self, port):
+        return (port == 0xFE)
+
+    def read(self, address):
+        self.high = address
+        return self.data
+
+class _IN(object):
+    def __init__(self):
+        self.device = DummyInput()
+
+    def __call__(self, value):
+        def _inner(tc, cpu, name):
+            self.device.data = value
+            self.device.high = 0x00
+        return _inner
+
+    def __eq__(self, other):
+        def _inner(tc, cpu, name):
+            tc.assertEqual(self.device.high, other, msg="""[ {} ] Expected most recent high address on input port to be 0x{:X}, but actually 0x{:X}""".format(name, other, self.device.high))
+        return _inner
+
+
+IN = _IN()
 F = FLAG()
 M = MEM()
 A = REG('A')
@@ -148,8 +178,10 @@ class TestInstructionSet(unittest.TestCase):
         print "---------------------"
 
     def execute_instructions(self, pre, instructions, t_cycles, post, name):
+        IN.device.data = 0x00
+        IN.device.high = 0x00
         membus = MemoryBus()
-        iobus  = IOBus()
+        iobus  = IOBus([ IN.device ])
         cpu    = Z80CPU(iobus, membus)
 
         for n in range(0,len(instructions)):
@@ -167,7 +199,7 @@ class TestInstructionSet(unittest.TestCase):
         self.__class__.executed_instructions.extend(call[1][0] for call in _decode_instruction.mock_calls)
 
         self.assertEqual(len(cpu.pipelines), 1)
-        self.assertEqual(len(cpu.pipelines[0]), 1)
+        self.assertEqual(len(cpu.pipelines[0]), 1, msg="[{}] At end of instruction pipeline still contains machine states: {!r}".format(name, cpu.pipelines[0]))
         self.assertEqual(str(type(cpu.pipelines[0][0])), "<class 'pyz80.machinestates._OCF'>")
 
         for action in post:
@@ -1536,6 +1568,65 @@ class TestInstructionSet(unittest.TestCase):
             [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xEF ], 11, [ (PC == 0x0028), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 28H" ],
             [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xF7 ], 11, [ (PC == 0x0030), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 30H" ],
             [ [ PC(0x1233), SP(0x1BBC) ], ([ 0xFF ]*0x1233) + [ 0xFF ], 11, [ (PC == 0x0038), (SP == 0x1BBA), (M[0x1BBA] == 0x34), (M[0x1BBB] == 0x12) ], "RST 38H" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_in(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ A(0x55), IN(0xAB) ],          [ 0xDB, 0xFE ], 11, [ (A == 0xAB), (IN == 0x55) ], "IN A,FEH" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x40 ], 12, [ (B == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN B,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x48 ], 12, [ (C == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN C,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x50 ], 12, [ (D == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN D,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x58 ], 12, [ (E == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN E,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x60 ], 12, [ (H == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN H,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x68 ], 12, [ (L == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN L,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x70 ], 12, [              (IN == 0x55), (F == 0xA9) ], "IN F,(C)" ],
+            [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x78 ], 12, [ (A == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN A,(C)" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ini(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xA2 ], 16, [ (M[0x1BBC] == 0xAB), (IN == 0x02), (HL == 0x1BBD), (B == 0x01), (F == 0x00) ], "INI" ],
+            [ [ IN(0xAB), HL(0x1BBC), B(0x1), C(0xFE) ], [ 0xED, 0xA2 ], 16, [ (M[0x1BBC] == 0xAB), (IN == 0x01), (HL == 0x1BBD), (B == 0x00), (F == 0x44) ], "INI" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_inir(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xB2 ], 21, [ (PC == 0x00), (M[0x1BBC] == 0xAB), (IN == 0x02), (HL == 0x1BBD), (B == 0x01), (F == 0x00) ], "INIR" ],
+            [ [ IN(0xAB), HL(0x1BBC), B(0x1), C(0xFE) ], [ 0xED, 0xB2 ], 16, [ (PC == 0x02), (M[0x1BBC] == 0xAB), (IN == 0x01), (HL == 0x1BBD), (B == 0x00), (F == 0x44) ], "INIR" ],
+            [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xB2 ], 37, [ (PC == 0x02), (M[0x1BBC] == 0xAB), (M[0x1BBD] == 0xAB), (IN == 0x01), (HL == 0x1BBE), (B == 0x00), (F == 0x44)], "INIR" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ind(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xAA ], 16, [ (M[0x1BBC] == 0xAB), (IN == 0x02), (HL == 0x1BBB), (B == 0x01), (F == 0x00) ], "INI" ],
+            [ [ IN(0xAB), HL(0x1BBC), B(0x1), C(0xFE) ], [ 0xED, 0xAA ], 16, [ (M[0x1BBC] == 0xAB), (IN == 0x01), (HL == 0x1BBB), (B == 0x00), (F == 0x44) ], "INI" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_indr(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xBA ], 21, [ (PC == 0x00), (M[0x1BBC] == 0xAB), (IN == 0x02), (HL == 0x1BBB), (B == 0x01), (F == 0x00) ], "INIR" ],
+            [ [ IN(0xAB), HL(0x1BBC), B(0x1), C(0xFE) ], [ 0xED, 0xBA ], 16, [ (PC == 0x02), (M[0x1BBC] == 0xAB), (IN == 0x01), (HL == 0x1BBB), (B == 0x00), (F == 0x44) ], "INIR" ],
+            [ [ IN(0xAB), HL(0x1BBC), B(0x2), C(0xFE) ], [ 0xED, 0xBA ], 37, [ (PC == 0x02), (M[0x1BBC] == 0xAB), (M[0x1BBB] == 0xAB), (IN == 0x01), (HL == 0x1BBA), (B == 0x00), (F == 0x44)], "INIR" ],
         ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
