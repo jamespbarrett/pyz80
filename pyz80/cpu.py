@@ -10,6 +10,7 @@ class Z80CPU(object):
         self.membus = membus
         self.iff1 = 0
         self.iff2 = 0
+        self.int = False
 
         self.reg = RegisterFile()
 
@@ -30,6 +31,9 @@ class Z80CPU(object):
 
         if len(self.pipelines) == 0:
             raise CPUStalled("No instructions in pipeline")
+
+    def interrupt(self, ack=None, nmi=False):
+        pass
 
     def CPU_STATE(self):
         return '\n'.join('[ ' + (', '.join(repr(state) for state in pipeline)) + ' ],' for pipeline in self.pipelines)

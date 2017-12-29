@@ -47,6 +47,13 @@ def di(tc, cpu, name):
     cpu.iff1 = 0
     cpu.iff2 = 0
 
+def begin_nmi(tc, cpu, name):
+    cpu.iff1 = 0
+    cpu.iff2 = 1
+
+def expect_int_enabled(tc, cpu, name):
+    tc.assertEqual(cpu.iff1, 1, msg="""[ {} ] Expected iff1 to be set, is actually reset""".format(name))
+
 class MEM(object):
     def __call__(self, key, value):
         return write_to_memory(key, value)
@@ -1559,7 +1566,7 @@ class TestInstructionSet(unittest.TestCase):
         tests = [
             [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B) ],  [ 0xC9 ], 10, [ (PC == 0x1BBC), (SP == 0x2BBE) ], "RET" ],
             [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B) ],  [ 0xED, 0x4D ], 14, [ (PC == 0x1BBC), (SP == 0x2BBE) ], "RETI" ],
-            [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B) ],  [ 0xED, 0x45 ], 14, [ (PC == 0x1BBC), (SP == 0x2BBE) ], "RETN" ],
+            [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B), begin_nmi, ],  [ 0xED, 0x45 ], 14, [ (PC == 0x1BBC), (SP == 0x2BBE), (expect_int_enabled) ], "RETN" ],
             [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B), F(0x01) ],  [ 0xD8 ], 11, [ (PC == 0x1BBC), (SP == 0x2BBE) ], "RET C (jump)" ],
             [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B), F(0x00) ],  [ 0xD8 ],  5, [ (PC == 0x0001), (SP == 0x2BBC) ], "RET C (no jump)" ],
             [ [ SP(0x2BBC), M(0x2BBC,0xBC), M(0x2BBD,0x1B), F(0x00) ],  [ 0xD0 ], 11, [ (PC == 0x1BBC), (SP == 0x2BBE) ], "RET NC (jump)" ],
@@ -1714,3 +1721,12 @@ class TestInstructionSet(unittest.TestCase):
 
         for (pre, instructions, t_cycles, post, name) in tests:
             self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_halt(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [], [ 0x76, 0xFF, 0xFF ], 100, [ (PC == 0x00) ], "HALT" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)        

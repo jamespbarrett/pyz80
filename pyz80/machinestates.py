@@ -200,7 +200,6 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None, dest=None)
             D = getattr(state.cpu.reg, source)
         elif len(args) > 0:
             D = args[0]
-            print D
         else:
             D = state.kwargs[key]
         d = D&0xFF
@@ -258,6 +257,12 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None, dest=None)
         if dest is not None:
             setattr(state.cpu.reg, dest, d)
     return _inner
+
+def restore_iff():
+    def _inner(state, *args):
+        state.cpu.iff1 = state.cpu.iff2
+    return _inner
+
 
 def daa():
     def _inner(state, *args):
@@ -1149,6 +1154,7 @@ INSTRUCTION_STATES = {
     0x73 : (0, [],                  [ MW(indirect="HL", source="E") ]),                               # LD (HL),E
     0x74 : (0, [],                  [ MW(indirect="HL", source="H") ]),                               # LD (HL),H
     0x75 : (0, [],                  [ MW(indirect="HL", source="L") ]),                               # LD (HL),L
+    0x76 : (0, [ on_condition(lambda state : not state.cpu.int, dec("PC")) ], []),                    # HALT
     0x77 : (0, [],                  [ MW(indirect="HL", source="A") ]),                               # LD (HL),A
     0x78 : (0, [ LDrs('A', 'B'), ], [] ),                                                             # LD A,B
     0x79 : (0, [ LDrs('A', 'C'), ], [] ),                                                             # LD A,C
@@ -1861,7 +1867,7 @@ INSTRUCTION_STATES = {
                                             MW(source="C"), MW(source="B") ]),                        # LD (nn),BC
     (0xED, 0x44) : (0, [ set_flags("SZ513V11", value=lambda state : (-state.cpu.reg.A)&0xFF, dest='A') ],
                                          []),                                                         # NEG
-    (0xED, 0x45) : (0, [],               [ SR(), SR(action=JP()) ] ),                                 # RETN
+    (0xED, 0x45) : (0, [],               [ SR(), SR(action=do_each(restore_iff(), JP())) ] ),         # RETN
     (0xED, 0x47) : (0, [LDrs('I', 'A')], []),                                                         # LD I,A
     (0xED, 0x48) : (0, [],                [ PR(high="B", low="C", dest="C",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN C,(C)
