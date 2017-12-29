@@ -69,6 +69,10 @@ def expect_int_preserved(tc, cpu, name):
 def expect_int_disabled(tc, cpu, name):
     tc.assertEqual(cpu.iff1, 0, msg="""[ {} ] Expected iff1 to be reset, is actually set""".format(name))
 
+def expect_int_not_preserved(tc, cpu, name):
+    tc.assertEqual(cpu.iff2, 0, msg="""[ {} ] Expected iff2 to be reset, is actually set""".format(name))
+
+
 class MEM(object):
     def __call__(self, key, value):
         return write_to_memory(key, value)
@@ -1845,6 +1849,35 @@ class TestInstructionSet(unittest.TestCase):
         tests = [
             [ [ ei, IM(1), IG(20, [], True), SP(0x1BBC), PC(0x2BBC) ], ([0xFF] * 0x2BBC) + [ 0x76, 0xFF, 0xFF ],  33,
                   [ (PC == 0x0066), (M[0x1BBB] == 0x2B), (M[0x1BBA] == 0xBD), (IG == (True, True)), expect_int_disabled, expect_int_preserved ], "NMI, interrupting HALT" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_di(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ ei ], [ 0xF3 ],  4, [ expect_int_disabled, expect_int_not_preserved ], "DI" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_ei(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ di ], [ 0xFB ],  4, [ expect_int_enabled, expect_int_preserved ], "EI" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_im(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ IM(1) ], [ 0xED, 0x46 ],  8, [ (IM == 0) ], "IM0" ],
+            [ [ IM(0) ], [ 0xED, 0x56 ],  8, [ (IM == 1) ], "IM1" ],
+            [ [ IM(0) ], [ 0xED, 0x5E ],  8, [ (IM == 2) ], "IM2" ],
         ]
 
         for (pre, instructions, t_cycles, post, name) in tests:

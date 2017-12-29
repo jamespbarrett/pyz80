@@ -267,6 +267,23 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None, dest=None)
             setattr(state.cpu.reg, dest, d)
     return _inner
 
+def di():
+    def _inner(state, *args):
+        state.cpu.iff1 = 0
+        state.cpu.iff2 = 0
+    return _inner
+
+def ei():
+    def _inner(state, *args):
+        state.cpu.iff1 = 1
+        state.cpu.iff2 = 1
+    return _inner
+
+def im(m):
+    def _inner(state, *args):
+        state.cpu.interrupt_mode = m
+    return _inner
+
 def restore_iff():
     def _inner(state, *args):
         state.cpu.iff1 = state.cpu.iff2
@@ -1470,6 +1487,7 @@ INSTRUCTION_STATES = {
                                     [ SR(), SR(action=JP()) ]),                                       # RET P
     0xF1 : (0, [],                  [ SR(), SR(action=LDr("AF")) ]),                                  # POP AF
     0xF2 : (0, [],                  [ OD(), OD(action=unless_flag("S",JP())) ]),                      # JP P,nn
+    0xF3 : (0, [ di() ],            []),                                                              # DI
     0xF4 : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
                                                               on_flag("S", early_abort()))),
                                       SW(source="PCH"), SW(source="PCL", action=JP(key="target")) ]), # CALL P,nn
@@ -1482,6 +1500,7 @@ INSTRUCTION_STATES = {
                                     [ SR(), SR(action=JP()) ]),                                       # RET M
     0xF9 : (0, [ LDrs('SP', 'HL') ], []),                                                             # LD SP,HL
     0xFA : (0, [],                  [ OD(), OD(action=on_flag("S",JP())) ]),                          # JP M,nn
+    0xFB : (0, [ ei() ],            []),                                                              # EI
     0xFC : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
                                                               unless_flag("S", early_abort()))),
                                       SW(source="PCH"), SW(source="PCL", action=JP(key="target")) ]), # CALL M,nn
@@ -1903,6 +1922,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x44) : (0, [ set_flags("SZ513V11", value=lambda state : (-state.cpu.reg.A)&0xFF, dest='A') ],
                                          []),                                                         # NEG
     (0xED, 0x45) : (0, [],               [ SR(), SR(action=do_each(restore_iff(), JP())) ] ),         # RETN
+    (0xED, 0x46) : (0, [ im(0) ],        []),                                                         # IM0
     (0xED, 0x47) : (0, [LDrs('I', 'A')], []),                                                         # LD I,A
     (0xED, 0x48) : (0, [],                [ PR(high="B", low="C", dest="C",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN C,(C)
@@ -1921,6 +1941,7 @@ INSTRUCTION_STATES = {
                                             OD(key="address", compound=high_after_low),
                                             MW(source="E"),
                                             MW(source="D") ]),                                        # LD (nn),DE
+    (0xED, 0x56) : (0, [ im(1) ],        []),                                                         # IM1
     (0xED, 0x57) : (0, [LDrs('A', 'I'), set_flags("SZ503*0-", source='I') ], []),                     # LD A,I
     (0xED, 0x58) : (0, [],                [ PR(high="B", low="C", dest="E",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN E,(C)
@@ -1929,6 +1950,7 @@ INSTRUCTION_STATES = {
     (0xED, 0x5B) : (0, [],                [ OD(key="address"),
                                             OD(key="address", compound=high_after_low),
                                             MR(action=LDr('E')), MR(action=LDr('D')) ]),              # LD DE,(nn)
+    (0xED, 0x5E) : (0, [ im(2) ],        []),                                                         # IM2
     (0xED, 0x5F) : (0, [LDrs('A', 'R'), set_flags("SZ503*0-", source='R') ], []),                     # LD A,R
     (0xED, 0x60) : (0, [],                [ PR(high="B", low="C", dest="H",
                                                    action=set_flags("SZ503P0-")) ]),                  # IN H,(C)
