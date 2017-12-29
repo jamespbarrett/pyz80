@@ -36,12 +36,13 @@ setup(
     ],
     keywords='emulator z80 zx80 zx81 spectrum',
     packages=find_packages(exclude=['tests']),
+    package_data={'pyz80' : [ 'roms/*.rom', 'roms/COPYING' ]},
     install_requires=[],
     extras_require={
         'dev': [],
         'test': ['mock'],
     },
-    package_data={},
+    zip_safe=False,
     entry_points={
         'console_scripts': [
             'pyz80=pyz80.__main__:main',

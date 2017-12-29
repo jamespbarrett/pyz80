@@ -189,7 +189,15 @@ class SpectrumULA (object):
             elif event.keycode == self.RSHIFT:
                 self._keyflags['/'] = False
 
+    def setup_interrupts(self, n, interrupt_handler):
+        self.interrupt_wait = n
+        self.next_interrupt_wait = n
+        self.interrupt_handler = interrupt_handler
+
     def __init__(self, scale=4):
+        self.interrupt_wait = 0
+        self.next_interrupt_wait = 0
+        self.interrupt_handler = None
         self._running = True
         self.window = Tkinter.Tk()
         self.window.protocol("WM_DELETE_WINDOW", self.kill)
@@ -203,9 +211,15 @@ class SpectrumULA (object):
 
     def update(self):
         """Call repeatedly in the main program loop to keep GUI updated."""
-        self.display.update()
-        self.window.update_idletasks()
-        self.window.update()
+        if self.interrupt_handler is not None:
+            self.next_interrupt_wait -= 1
+            if self.next_interrupt_wait == 0:
+                print "INTERRUPT"
+                self.next_interrupt_wait = self.interrupt_wait
+                self.interrupt_handler()
+                self.display.update()
+                self.window.update_idletasks()
+                self.window.update()
 
     def kill(self):
         """Destroys the main window."""
@@ -238,7 +252,6 @@ if __name__ == "__main__": # pragma: no cover
         if mode == "pixels":
             d = bus.read(addr)
             bus.write(addr, 0x55)
-#            if d == 0x7F:
             addr += 1
             if addr == 0x5800:
                 mode = "attributes"

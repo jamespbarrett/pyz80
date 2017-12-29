@@ -102,6 +102,3 @@ ENV/
 
 # coverage files
 *.py,cover
-
-# rom files
-*.rom
