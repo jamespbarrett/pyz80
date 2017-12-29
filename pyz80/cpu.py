@@ -11,6 +11,8 @@ class Z80CPU(object):
         self.iff1 = 0
         self.iff2 = 0
         self.int = False
+        self.pending_interrupts = []
+        self.interrupt_mode = 0
 
         self.reg = RegisterFile()
 
@@ -27,13 +29,33 @@ class Z80CPU(object):
         while len(self.pipelines) > 0 and len(self.pipelines[0]) == 0:
             self.pipelines.pop(0)
         if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
+            interrupt = None
+            if len([ ack for (nmi, ack) in self.pending_interrupts if nmi ]) > 0:
+                interrupt = [ (nmi, ack) for (nmi, ack) in self.pending_interrupts if nmi ][-1]
+            elif (len(self.pending_interrupts) > 0):
+                interrupt = self.pending_interrupts[-1]
+            self.pending_interrupts = []
+            if interrupt is not None:
+                self.iff1 = 0
+                if not interrupt[0]:
+                    self.iff2 = 0
+                self.pipelines.append(interrupt_response(self, interrupt[0], ack=interrupt[1]))
+            elif self.int == True:
+                raise Exception("Should be a processable interrupt here, but there isn't")
+            self.int = False
+        if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
             self.pipelines.append([ OCF()().setcpu(self), ])
 
         if len(self.pipelines) == 0:
             raise CPUStalled("No instructions in pipeline")
 
     def interrupt(self, ack=None, nmi=False):
-        pass
+        """Call to initiate an interrupt. Set ack to a generator taking the cpu as an argument, which will be called in response 
+        to the interrupt if it is accepted, any values it yields will be used as the data on the data bus from the external interrupting device,
+        otherwise 0x00 will be used. If nmi is set to True then the interrupt will be non-maskable, and will have higher priority."""
+        self.int = self.int or nmi or (self.iff1 != 0)
+        if nmi or (self.iff1 != 0):
+            self.pending_interrupts.append((nmi, ack))
 
     def CPU_STATE(self):
         return '\n'.join('[ ' + (', '.join(repr(state) for state in pipeline)) + ' ],' for pipeline in self.pipelines)

@@ -47,12 +47,27 @@ def di(tc, cpu, name):
     cpu.iff1 = 0
     cpu.iff2 = 0
 
+def im0(tc, cpu, name):
+    cpu.interrupt_mode = 0
+
+def im1(tc, cpu, name):
+    cpu.interrupt_mode = 1
+
+def im2(tc, cpu, name):
+    cpu.interrupt_mode = 2
+
 def begin_nmi(tc, cpu, name):
     cpu.iff1 = 0
     cpu.iff2 = 1
 
 def expect_int_enabled(tc, cpu, name):
     tc.assertEqual(cpu.iff1, 1, msg="""[ {} ] Expected iff1 to be set, is actually reset""".format(name))
+
+def expect_int_preserved(tc, cpu, name):
+    tc.assertEqual(cpu.iff2, 1, msg="""[ {} ] Expected iff2 to be set, is actually reset""".format(name))
+
+def expect_int_disabled(tc, cpu, name):
+    tc.assertEqual(cpu.iff1, 0, msg="""[ {} ] Expected iff1 to be reset, is actually set""".format(name))
 
 class MEM(object):
     def __call__(self, key, value):
@@ -153,6 +168,63 @@ class _OUT(object):
             tc.assertEqual((self.device.high, self.device.data), other, msg="""[ {} ] Expected most recent high address and data on input port to be (0x{:X},0x{:X}) but actually (0x{:X},0x{:X})""".format(name, other[0], other[1], self.device.high, self.device.data))
         return _inner
 
+class INTGEN(object):
+    def __init__(self):
+        self.next_interrupt = -1
+        self.data = []
+        self.interrupted = False
+        self.acknowledged = False
+        super(INTGEN, self).__init__()
+
+    def reset(self):
+        self.next_interrupt = -1
+        self.data = []
+        self.interrupted = False
+        self.acknowledged = False
+
+    def __call__(self, n, data, nmi=False):
+        def _inner(tc, cpu, name):
+            self.next_interrupt = n
+            self.data           = data
+            self.nmi            = nmi
+        return _inner
+
+    def clock(self, cpu):
+        if self.next_interrupt >= 0:
+            self.next_interrupt -= 1
+        if self.next_interrupt == 0:
+            self.interrupted = True
+            def _ack(cpu):
+                self.acknowledged = True
+                for x in self.data:
+                    yield x
+            cpu.interrupt(ack=_ack, nmi=self.nmi)
+
+    def __eq__(self, other):
+        def _inner(tc, cpu, name):
+            if other[0]:
+                tc.assertTrue(self.interrupted, msg = "[ {} ] Expected an interrupt, but none was fired".format(name))
+                if other[1]:
+                    tc.assertTrue(self.acknowledged, msg = "[ {} ] Expected an acknowledgement, but none was received".format(name))
+                else:
+                    tc.assertFrue(self.acknowledged, msg = "[ {} ] Expected no acknowledgement, but one was received".format(name))
+            else:
+                tc.assertFalse(self.interrupted, msg = "[ {} ] Expected no interrupt, but one was fired".format(name))
+        return _inner
+
+class _IM(object):
+    def __call__(self, mode):
+        def _inner(tc, cpu, name):
+            cpu.interrupt_mode = mode
+        return _inner
+
+    def __eq__(self, other):
+        def _inner(tc, cpu, name):
+            tc.assertEqual(cpu.interrupt_mode, other, msg = "[ {} ] Excptected interrupt mode {} but actually is {}".format(name, other, cpu.interrupt_mode))
+        return _inner
+
+IM = _IM()
+IG = INTGEN()
 IN = _IN()
 OUT = _OUT()
 F = FLAG()
@@ -211,6 +283,7 @@ class TestInstructionSet(unittest.TestCase):
         IN.device.high = 0x00
         OUT.device.data = 0x00
         OUT.device.high = 0x00
+        IG.reset()
         membus = MemoryBus()
         iobus  = IOBus([ IN.device, OUT.device ])
         cpu    = Z80CPU(iobus, membus)
@@ -225,6 +298,7 @@ class TestInstructionSet(unittest.TestCase):
         original_decode_instruction = decode_instruction
         with mock.patch('pyz80.machinestates.decode_instruction', side_effect=original_decode_instruction) as _decode_instruction:
             for n in range(0, t_cycles):
+                IG.clock(cpu)
                 cpu.clock()
 
         self.__class__.executed_instructions.extend(call[1][0] for call in _decode_instruction.mock_calls)
@@ -1725,8 +1799,53 @@ class TestInstructionSet(unittest.TestCase):
     def test_halt(self):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
-            [ [], [ 0x76, 0xFF, 0xFF ], 100, [ (PC == 0x00) ], "HALT" ],
+            [ [],                [ 0x76, 0xFF, 0xFF ], 100, [ (PC == 0x00) ], "HALT" ],
+            [ [ ei, IG(20,[]) ], [ 0x76, 0xFF, 0xFF ],  20, [ (PC == 0x01) ], "HALT" ],
         ]
 
         for (pre, instructions, t_cycles, post, name) in tests:
-            self.execute_instructions(pre, instructions, t_cycles, post, name)        
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_interrupt_mode0(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ ei, IM(0), IG(20,[ 0x06, 0x0B ]) ], [ 0x76, 0xFF, 0xFF ],  29, [ (PC == 0x01), (B == 0x0B), (IG == (True, True)), expect_int_disabled ], "Mode 0 Interrupt, interrupting HALT" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_interrupt_mode1(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ ei, IM(1), IG(20, []), SP(0x1BBC), PC(0x2BBC) ], ([0xFF] * 0x2BBC) + [ 0x76, 0xFF, 0xFF ],  33,
+                  [ (PC == 0x0038), (M[0x1BBB] == 0x2B), (M[0x1BBA] == 0xBD), (IG == (True, True)), expect_int_disabled ], "Mode 1 Interrupt, interrupting HALT" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_interrupt_mode2(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [
+                [ ei, IM(2), IG(20, [ 0xBC ]), SP(0x1BBC), PC(0x2BBC), I(0x3B), M(0x3BBC, 0xFE), M(0x3BBD, 0xC0) ],
+                ([0xFF] * 0x2BBC) + [ 0x76, 0xFF, 0xFF ],
+                39,
+                [ (PC == 0xC0FE), (M[0x1BBB] == 0x2B), (M[0x1BBA] == 0xBD), (IG == (True, True)), expect_int_disabled ],
+                "Mode 2 Interrupt, interrupting HALT"
+            ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)
+
+    def test_nmi(self):
+        # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
+        tests = [
+            [ [ ei, IM(1), IG(20, [], True), SP(0x1BBC), PC(0x2BBC) ], ([0xFF] * 0x2BBC) + [ 0x76, 0xFF, 0xFF ],  33,
+                  [ (PC == 0x0066), (M[0x1BBB] == 0x2B), (M[0x1BBA] == 0xBD), (IG == (True, True)), expect_int_disabled, expect_int_preserved ], "NMI, interrupting HALT" ],
+        ]
+
+        for (pre, instructions, t_cycles, post, name) in tests:
+            self.execute_instructions(pre, instructions, t_cycles, post, name)

@@ -1,4 +1,4 @@
-__all__ = [ "MachineState", "OCF", "UnrecognisedInstructionError" ]
+__all__ = [ "MachineState", "OCF", "UnrecognisedInstructionError", "interrupt_response" ]
 
 class UnrecognisedInstructionError(Exception):
     def __init__(self, inst):
@@ -132,6 +132,15 @@ def dec(reg):
             setattr(state.cpu.reg, reg, (0xFFFF + getattr(state.cpu.reg, reg))&0xFFFF)
         else:
             setattr(state.cpu.reg, reg, (0xFF + getattr(state.cpu.reg, reg))&0xFF)
+    return _inner
+
+def inta(ds):
+    """Acknowledge an interrupt, but ignore the data from the remote device"""
+    def _inner(state, *args):
+        try:
+            ds.next()
+        except:
+            pass
     return _inner
 
 def on_zero(reg, action):
@@ -305,9 +314,14 @@ class MachineState(object):
         self.args         = []
         self.kwargs       = {}
         self.return_value = None
+        self.data_source  = None
 
     def setcpu(self, cpu):
         self.cpu = cpu
+        return self
+
+    def set_data_source(self, data_source):
+        self.data_source = data_source
         return self
 
     def fetchlocked(self):
@@ -337,11 +351,13 @@ class MachineState(object):
 def high_after_low(x,y):
     return ((x << 8) | y)
 
-def OCF(prefix=None):
+def OCF(prefix=None, data_source=None, extra=0):
     class _OCF(MachineState):
         """This state fetches an OP Code from memory and advances the PC in 4 t-cycles.
         Initialisation Parameters:
         - Optionally: 'prefix' for a multibyte op-code this will be prefixed to what is loaded
+        - Optionally: 'data_source' an iterable to use to get data instead of reading the PC location in memory
+        - Optionally: 'extra' extra clock cycles to wait for
         Args In:
         - None
         Args Out:
@@ -355,8 +371,10 @@ def OCF(prefix=None):
         - 4 clock cycles, or more if decode indicates there should be."""
 
         def __init__(self):
-            self.prefix = prefix
+            self.prefix      = prefix
+            self.extra       = extra
             super(_OCF,self).__init__()
+            self.data_source = data_source
 
         def fetchlocked(self):
             return True
@@ -365,7 +383,14 @@ def OCF(prefix=None):
             PC = self.cpu.reg.PC
             yield
 
-            inst = self.cpu.membus.read(PC)
+            if self.data_source is not None:
+                try:
+                    inst = self.data_source.next()
+                except StopIteration:
+                    inst = 0x00
+            else:
+                inst = self.cpu.membus.read(PC)
+
             if isinstance(self.prefix, int):
                 inst = (self.prefix, inst)
             elif isinstance(self.prefix, tuple):
@@ -373,11 +398,12 @@ def OCF(prefix=None):
             yield
 
             (extra_clocks, actions, states) = decode_instruction(inst)
-            self.cpu.reg.PC = PC + 1
-            states = [ state().setcpu(self.cpu) for state in states ]
+            if self.data_source is None:
+                self.cpu.reg.PC = PC + 1
+            states = [ state().setcpu(self.cpu).set_data_source(self.data_source) for state in states ]
             yield
 
-            for n in range(0,extra_clocks-1):
+            for n in range(0,self.extra + extra_clocks-1):
                 yield
 
             self.pipeline.extend(states)
@@ -419,11 +445,20 @@ def OD(compound=high_after_low, action=None, key="value", signed=False):
         def run(self):
             PC = self.cpu.reg.PC
             yield
-            D = self.cpu.membus.read(PC)
+
+            if self.data_source is None:
+                D = self.cpu.membus.read(PC)
+            else:
+                try:
+                    D = self.data_source.next()
+                except StopIteration:
+                    D = 0x00
             if signed and D >= 0x80:
                 D = D - 0x100
             yield
-            self.cpu.reg.PC = PC + 1
+
+            if self.data_source is None:
+                self.cpu.reg.PC = PC + 1
             if self.key in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs[self.key])
             if self.action is not None:
@@ -2270,3 +2305,27 @@ def decode_instruction(instruction):
     if instruction in INSTRUCTION_STATES:
         return INSTRUCTION_STATES[instruction]
     raise UnrecognisedInstructionError(instruction)
+
+def interrupt_response(cpu, nmi, ack=None):
+    """Called to generate the new pipeline set up to respond to an interrupt."""
+    if ack is not None:
+        ds = ack(cpu)
+    else:
+        ds = ( x for x in [] )
+
+
+    if nmi:
+        return [ IO(5, True, action=inta(ds))().setcpu(cpu), SW(source="PCH")().setcpu(cpu), SW(source="PCL", action=JP(0x0066))().setcpu(cpu) ]
+    if cpu.interrupt_mode == 0:
+        return [ OCF(data_source=ds, extra=2)().setcpu(cpu) ]
+    elif cpu.interrupt_mode == 1:
+        return [ IO(7, True, action=inta(ds))().setcpu(cpu), SW(source="PCH")().setcpu(cpu), SW(source="PCL", action=JP(0x0038))().setcpu(cpu) ]
+    elif cpu.interrupt_mode == 2:
+        return [ IO(4, True)().setcpu(cpu),
+                 OD(action=RRr("address", value=lambda state,v: (state.cpu.reg.I << 8) | (v&0xFE)))().setcpu(cpu).set_data_source(ds),
+                 SW(source="PCH")().setcpu(cpu),
+                 SW(source="PCL")().setcpu(cpu),
+                 MR()().setcpu(cpu),
+                 MR(action=JP())().setcpu(cpu) ]
+    else:
+        raise Exception("Not implemented yet")
