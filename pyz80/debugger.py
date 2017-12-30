@@ -5,6 +5,7 @@ class Debugger(object):
         self.components = args
         self.commandhistory = []
         self.breakpoints = []
+        self.watchpoints = []
 
         self.commands = {
             "quit" : [ self.quit, "exit the debugger"],
@@ -17,6 +18,10 @@ class Debugger(object):
             "showbreakpoints" : [ self.showbreakpoints, "Show all breakpoints" ],
             "continue"        : [ self._continue, "Run until a breakpoint is hit or an exception thrown" ],
             "" : [self.dolastthing, None],
+            "stack" : [ self.printstack, "Print the stack" ],
+            "watchpoint" : [ self.watch, "Watch the value in a register for changes" ],
+            "deletewatchpoint" : [ self.deletewatchpoint, "Remove a watchpoint" ],
+            "showwatchpoints" : [ self.showatchpoints, "Show all watchpoints" ],
         }
 
     def decode_address(self, a):
@@ -79,8 +84,33 @@ class Debugger(object):
             except:
                 print "Bad argument: <{}>".format(args[0])
 
-        if n >= 0:
+        if n >= 0 and n < len(self.breakpoints):
             self.breakpoints[n] = None
+
+    def watch(self, *args):
+        if len(args) == 0:
+            print "Need a register to watch"
+            return
+
+        if args[0] not in [ "AF", "BC", "DE", "HL", "SP", "PC", "IX", "IY",  "A", "F", "B", "C", "D", "E", "H", "L", "SPH", "SPL", "PCH", "PCL", "IXH", "IXL", "IYH", "IYL", "I", "R" ]:
+            print "Bad register: <{}>".format(args[0])
+            return
+
+        self.watchpoints.append(args[0])
+
+    def deletewatchpoint(self, *args):
+        if len(args) == 0:
+            print "Need a register to stop watching"
+            return
+
+        if len(args) == 0 and len(self.watchpoints) > 0:
+            del self.watchpoints[-1]
+        else:
+            try:
+                self.watchpoints.remove(args[0])
+            except:
+                print "{} is not a register being watched".format(args[0])
+                return
 
     def help(self, *args):
         print "Commands:"
@@ -114,7 +144,10 @@ class Debugger(object):
             self.printstate()
 
     def _continue(self, *args):
+        watchvals = {}
         while True:
+            for reg in self.watchpoints:
+                watchvals[reg] = getattr(self.cpu.reg, reg)
             try:
                 while self.cpu.clock() != 0:
                     for comp in self.components:
@@ -125,14 +158,23 @@ class Debugger(object):
                 self.printstate()
                 return
 
+            stop = False
             n = 0
             for bp in self.breakpoints:
                 if self.cpu.reg.PC == bp:
                     print "Hit breakpoint <{:02d}>".format(n)
-                    print
-                    self.printstate()
-                    return
+                    stop = True
                 n += 1
+
+            for reg in watchvals:
+                if watchvals[reg] != getattr(self.cpu.reg, reg):
+                    print "Watched value changed: {} from 0x{:02X} to 0x{:02X}".format(reg, watchvals[reg], getattr(self.cpu.reg, reg))
+                    stop = True
+
+            if stop:
+                print
+                self.printstate()
+                return
 
     def _print(self, *args):
         for arg in args:
@@ -160,6 +202,9 @@ class Debugger(object):
                 print
             n += 1
 
+    def showatchpoints(self, *args):
+        print ", ".join(self.watchpoints)
+
     def printstate(self, *args):
         print
         print self.cpu.CPU_STATE()
@@ -182,16 +227,34 @@ class Debugger(object):
         print "  ".join(" 0x{:02X} ".format(self.cpu.membus.read(addr)) for addr in range(start, end))
         print "  ".join([ "      " for _ in range(start, HL) ] + [ "^^HL^^" ] + [ "      " for _ in range(HL+1, end) ])
         print
+        self.printstack(*args)
+
+    def printstack(self, *args):
+        print "Stack"
+        print "-----"
+        for n in range(0,8):
+            addr = self.cpu.reg.SP + 2*n
+            if addr <= 0xFFFE:
+                print "0x{:04x}".format(self.cpu.membus.read(addr) + (self.cpu.membus.read(addr + 1) << 8))
+        print
 
     def executecommand(self, cmd):
         cmds = cmd.split(' ')
         cmd = cmds[0]
-        C = None
+        C = []
         if cmd != "":
             for c in self.commands:
                 if cmd == c[:len(cmd)]:
-                    C = c
-                    break
+                    C.append(c)
+            if len(C) == 0:
+                print "Unknown Command: {}".format(cmd)
+                return
+            elif len(C) == 1:
+                C = C[0]
+            else:
+                print "Ambiguous Command, could be any of: {}".format(', '.join(C))
+                return
+        
         else:
             C = ""
 
@@ -213,7 +276,6 @@ class Debugger(object):
                 break
             if cmd != "":
                 self.commandhistory.append(cmd)
-                print "command history: {!r}".format(self.commandhistory)
 
 if __name__ == "__main__":
     from ULA import SpectrumULA

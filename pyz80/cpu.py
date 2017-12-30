@@ -68,7 +68,10 @@ class Z80CPU(object):
             self.pending_interrupts.append((nmi, ack))
 
     def CPU_STATE(self):
-        return '\n'.join('[ ' + (', '.join(repr(state) for state in pipeline)) + ' ],' for pipeline in self.pipelines)
+        rval = []
+        rval += [ ('\n'.join('[ ' + (', '.join(repr(state) for state in pipeline)) + ' ],' for pipeline in self.pipelines)) ]
+        rval += [ """Interrupt Mode: {}, iff ({},{}), Pending Interrupts: {!r}""".format(self.interrupt_mode, self.iff1, self.iff2, self.int) ]
+        return '\n\n'.join(rval)
 
 if __name__ == "__main__": #pragma: no cover
     from ULA import SpectrumULA
