@@ -22,7 +22,6 @@ def main(args=None):
 
     n = 0
     while True:
-        print cpu.reg.PC
         try:
             cpu.clock()
             ula.update()
@@ -30,7 +29,30 @@ def main(args=None):
             print format_exc()
             break
         except:
-            raise
+            print format_exc()
+            print
+            inst = cpu.most_recent_instruction
+            if isinstance(inst, tuple):
+                inst = "(" + ', '.join( "0x{:02X}".format(i) for i in inst ) + ")"
+            elif isinstance(inst, int):
+                inst = "0x{:02X}".format(inst)
+            print "Most recent instruction processed: {!r}".format(inst)
+            print "On t-state number: {}".format(cpu.tick_count)
+            print
+            print cpu.CPU_STATE()
+            print
+            print cpu.reg.registermap()
+            print
+            print "Memory around PC:"
+            PC = cpu.reg.PC
+            start = max(0, PC - 8)
+            for n in range(start, start + 16):
+                if n != PC:
+                    print "0x{:04X} : 0x{:02X}".format(n,cpu.membus.read(n))
+                else:
+                    print "0x{:04X} : 0x{:02X} <-- (PC)".format(n,cpu.membus.read(n))
+            print
+            break
         n+=1
 
 if __name__ == "__main__":

@@ -127,6 +127,8 @@ class RegisterFile(object):
         raise AttributeError
 
     def __setattr__(self, name, value):
+        if not isinstance(value, int):
+            raise Exception("Attempt to set register {} to invalid value {}".format(name, value))
         if name in ("AF", "BC", "DE", "HL"):
             super(RegisterFile, self).__setattr__(name[0], (value >> 8)&0xFF)
             super(RegisterFile, self).__setattr__(name[1], value&0xFF)

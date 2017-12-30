@@ -209,12 +209,14 @@ class SpectrumULA (object):
         """Returns true if the main window is still open."""
         return self._running
 
+    def clock(self):
+        self.update()
+
     def update(self):
         """Call repeatedly in the main program loop to keep GUI updated."""
         if self.interrupt_handler is not None:
             self.next_interrupt_wait -= 1
             if self.next_interrupt_wait == 0:
-                print "INTERRUPT"
                 self.next_interrupt_wait = self.interrupt_wait
                 self.interrupt_handler()
                 self.display.update()

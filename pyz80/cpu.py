@@ -16,6 +16,9 @@ class Z80CPU(object):
 
         self.reg = RegisterFile()
 
+        self.most_recent_instruction = None
+        self.tick_count = 0
+
         # This member holds all of the active instruction pipelines currently being worked on by the cpu
         # It starts off with a single pipeline containing a single OCF (Op Code Fetch) machine state
         self.pipelines = [
@@ -26,10 +29,14 @@ class Z80CPU(object):
         """This method executes a single clock cycle on the CPU's state machine."""
         for pipeline in self.pipelines:
             pipeline[0].clock(pipeline)
+            self.tick_count += 1
         while len(self.pipelines) > 0 and len(self.pipelines[0]) == 0:
             self.pipelines.pop(0)
         if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
+            self.most_recent_instruction = None
+            self.tick_count = 0
             interrupt = None
+
             if len([ ack for (nmi, ack) in self.pending_interrupts if nmi ]) > 0:
                 interrupt = [ (nmi, ack) for (nmi, ack) in self.pending_interrupts if nmi ][-1]
             elif (len(self.pending_interrupts) > 0):
@@ -42,12 +49,15 @@ class Z80CPU(object):
                 self.pipelines.append(interrupt_response(self, interrupt[0], ack=interrupt[1]))
             elif self.int == True:
                 raise Exception("Should be a processable interrupt here, but there isn't")
+
             self.int = False
         if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
             self.pipelines.append([ OCF()().setcpu(self), ])
 
         if len(self.pipelines) == 0:
             raise CPUStalled("No instructions in pipeline")
+
+        return self.tick_count
 
     def interrupt(self, ack=None, nmi=False):
         """Call to initiate an interrupt. Set ack to a generator taking the cpu as an argument, which will be called in response 

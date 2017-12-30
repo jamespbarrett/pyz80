@@ -1686,6 +1686,7 @@ class TestInstructionSet(unittest.TestCase):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = [
             [ [ A(0x55), IN(0xAB) ],          [ 0xDB, 0xFE ], 11, [ (A == 0xAB), (IN == 0x55) ], "IN A,FEH" ],
+            [ [ A(0x55), IN(0xAB) ],          [ 0xDB, 0x57 ], 11, [ (A == 0x00) ], "IN A,57H" ],            
             [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x40 ], 12, [ (B == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN B,(C)" ],
             [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x48 ], 12, [ (C == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN C,(C)" ],
             [ [ B(0x55), C(0xFE), IN(0xAB) ], [ 0xED, 0x50 ], 12, [ (D == 0xAB), (IN == 0x55), (F == 0xA8) ], "IN D,(C)" ],

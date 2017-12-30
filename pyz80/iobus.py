@@ -24,6 +24,7 @@ class IOBus (object):
         for device in self.devices:
             if device.responds_to_port(port):
                 return device.read(high_address)
+        return 0x00
 
     def write(self, port, high_address, data):
         """Write to the specified address on the specified port."""

@@ -412,6 +412,7 @@ def OCF(prefix=None, data_source=None, extra=0):
                 inst = (self.prefix, inst)
             elif isinstance(self.prefix, tuple):
                 inst = tuple(list(self.prefix) + [ inst ])
+            self.cpu.most_recent_instruction = inst
             yield
 
             (extra_clocks, actions, states) = decode_instruction(inst)
@@ -2337,12 +2338,16 @@ def interrupt_response(cpu, nmi, ack=None):
 
 
     if nmi:
+        cpu.most_recent_instruction = "NMI"
         return [ IO(5, True, action=inta(ds))().setcpu(cpu), SW(source="PCH")().setcpu(cpu), SW(source="PCL", action=JP(0x0066))().setcpu(cpu) ]
     if cpu.interrupt_mode == 0:
+        cpu.most_recent_instruction = "INT0"
         return [ OCF(data_source=ds, extra=2)().setcpu(cpu) ]
     elif cpu.interrupt_mode == 1:
+        cpu.most_recent_instruction = "INT1"
         return [ IO(7, True, action=inta(ds))().setcpu(cpu), SW(source="PCH")().setcpu(cpu), SW(source="PCL", action=JP(0x0038))().setcpu(cpu) ]
     elif cpu.interrupt_mode == 2:
+        cpu.most_recent_instruction = "INT2"
         return [ IO(4, True)().setcpu(cpu),
                  OD(action=RRr("address", value=lambda state,v: (state.cpu.reg.I << 8) | (v&0xFE)))().setcpu(cpu).set_data_source(ds),
                  SW(source="PCH")().setcpu(cpu),
