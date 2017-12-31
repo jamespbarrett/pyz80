@@ -1,3 +1,4 @@
+from machinestates import *
 
 class Debugger(object):
     def __init__(self, cpu, *args):
@@ -22,7 +23,35 @@ class Debugger(object):
             "watchpoint" : [ self.watch, "Watch the value in a register for changes" ],
             "deletewatchpoint" : [ self.deletewatchpoint, "Remove a watchpoint" ],
             "showwatchpoints" : [ self.showatchpoints, "Show all watchpoints" ],
+            "disassemble" : [ self.disassemble, "disassemble instructions near the current PC" ],
         }
+
+    def disassemble(self, *args):
+        PC = self.cpu.reg.PC
+        found = False
+        for baddr in range(PC-8, PC+1):
+            start = max(0, baddr)
+            end   = min(0x10000, start + 16)
+            instructions = [ self.cpu.membus.read(addr) for addr in range(start, end) ]
+            disassembly = disassemble_instructions(instructions)
+
+            pc = start
+            for (c,l) in disassembly:
+                if pc == PC:
+                    found = True
+                    break
+                pc += l
+            if found:
+                break
+
+        i = 0
+        for d in range(0, len(disassembly)):
+            print (">> " if start + i == PC else "   ") + "0x{:04X}:  0x{:02X}  -- {}".format(start + i, instructions[i], disassembly[d][0])
+            i += 1
+            for n in range(1,disassembly[d][1]):
+                if i < len(instructions):
+                    print "   0x{:04X}:  0x{:02X}".format(start + i, instructions[i])
+                    i += 1
 
     def decode_address(self, a):
         if a in ["AF", "BC", "DE", "HL", "SP", "PC", "IX", "IY"]:
@@ -211,14 +240,6 @@ class Debugger(object):
         print
         print self.cpu.reg.registermap()
         print
-        PC = self.cpu.reg.PC
-        start = max(0, PC - 8)
-        end   = min(0x10000, start + 16)
-        print "  ".join("0x{:04X}".format(addr) for addr in range(start, end))
-        print "-"*126
-        print "  ".join(" 0x{:02X} ".format(self.cpu.membus.read(addr)) for addr in range(start, end))
-        print "  ".join([ "      " for _ in range(start, PC) ] + [ "^^PC^^" ] + [ "      " for _ in range(PC+1, end) ])
-        print
         HL = self.cpu.reg.HL
         start = max(0, HL - 8)
         end   = min(0x10000, start + 16)
@@ -228,6 +249,8 @@ class Debugger(object):
         print "  ".join([ "      " for _ in range(start, HL) ] + [ "^^HL^^" ] + [ "      " for _ in range(HL+1, end) ])
         print
         self.printstack(*args)
+        print
+        self.disassemble(*args)
 
     def printstack(self, *args):
         print "Stack"
@@ -248,12 +271,12 @@ class Debugger(object):
                     C.append(c)
             if len(C) == 0:
                 print "Unknown Command: {}".format(cmd)
-                return
+                return True
             elif len(C) == 1:
                 C = C[0]
             else:
                 print "Ambiguous Command, could be any of: {}".format(', '.join(C))
-                return
+                return True
         
         else:
             C = ""
