@@ -51,7 +51,7 @@ class TestSpectrumULA(unittest.TestCase):
         expected_calls = []
         flip = (flash and (self.UUT.display.flash != 0x00))
         for i in range(0,8):
-            if (not flip and ((1 << i) != bitval)) or (flip and ((1 << i) == bitval)):
+            if (not flip and ((1 << (7-i)) != bitval)) or (flip and ((1 << (7-i)) == bitval)):
                 expected_calls.append(mock.call((((x/8)*8 + i)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[bg][0]))
             else:
                 expected_calls.append(mock.call((((x/8)*8 + i)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[fg][0]))
@@ -82,11 +82,11 @@ class TestSpectrumULA(unittest.TestCase):
         for j in range(0,8):
             for i in range(0,4):
                 if flash and (self.UUT.display.flash != 0x00):
-                    expected_calls.append(mock.call(( (x*8 + 2*i + 1)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[fg][0]))
-                    expected_calls.append(mock.call(((x*8 + 2*i + 0)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[bg][0]))
+                    expected_calls.append(mock.call(( (x*8 + (7 - 2*i) - 1)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[fg][0]))
+                    expected_calls.append(mock.call(((x*8 + (7 - 2*i) + 0)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[bg][0]))
                 else:
-                    expected_calls.append(mock.call(( (x*8 + 2*i + 1)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[bg][0]))
-                    expected_calls.append(mock.call(((x*8 + 2*i + 0)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[fg][0]))
+                    expected_calls.append(mock.call(( (x*8 + (7 - 2*i) - 1)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[bg][0]))
+                    expected_calls.append(mock.call(((x*8 + (7 - 2*i) + 0)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[fg][0]))
         self.assertItemsEqual(self.canvas.itemconfigure.mock_calls, expected_calls)
 
     def test_write_attributes(self):
@@ -105,6 +105,7 @@ class TestSpectrumULA(unittest.TestCase):
         self.UUT.window.update.assert_called_once_with()
 
     def test_flash(self):
+        self.maxDiff = None
         self.UUT.display.data[0x1800] = 0x87
         for j in range(0,8):
             self.UUT.display.data[j*0x100] = 0x55
@@ -115,8 +116,8 @@ class TestSpectrumULA(unittest.TestCase):
         expected_calls = []
         for y in range(0,8):
             for x in range(0,4):
-                expected_calls.append(mock.call(( 2*x*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[0][0]))
-                expected_calls.append(mock.call(( (2*x + 1)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[7][0]))
+                expected_calls.append(mock.call(( (7 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[0][0]))
+                expected_calls.append(mock.call(( (6 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[7][0]))
         self.assertItemsEqual(expected_calls, self.canvas.itemconfigure.mock_calls)
 
         self.canvas.itemconfigure.reset_mock()
@@ -132,8 +133,8 @@ class TestSpectrumULA(unittest.TestCase):
         expected_calls = []
         for y in range(0,8):
             for x in range(0,4):
-                expected_calls.append(mock.call(( 2*x*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[7][0]))
-                expected_calls.append(mock.call(( (2*x + 1)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[0][0]))
+                expected_calls.append(mock.call(( (7 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[7][0]))
+                expected_calls.append(mock.call(( (6 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[0][0]))
         self.assertItemsEqual(expected_calls, self.canvas.itemconfigure.mock_calls)
 
     def test_description(self):

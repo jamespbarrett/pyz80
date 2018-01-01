@@ -68,13 +68,13 @@ class SpectrumULA (object):
                 if (attributes >> 7) == 1:
                         data = data ^ self.flash
                 for i in range(0,8):
-                    if (data&0x1) == 0:
+                    if (data&0x80) == 0:
                         c = bg
                     else:
                         c = fg
                     pixel = self.pixels[addr][i]
                     self.canvas.itemconfigure(pixel, fill=c)
-                    data >>= 1
+                    data <<= 1
             else:
                 # This is a change to attributes, so whole 8x8 block needs updating
                 y = (addr - 0x1800)/32
@@ -87,13 +87,13 @@ class SpectrumULA (object):
                     if (data >> 7) == 1:
                         pixdata = pixdata ^ self.flash
                     for i in range(0,8):
-                        if (pixdata&0x1) == 0:
+                        if (pixdata&0x80) == 0:
                             c = bg
                         else:
                             c = fg
                         pixel = self.pixels[pixaddr][i]
                         self.canvas.itemconfigure(pixel, fill=c)
-                        pixdata >>= 1
+                        pixdata <<= 1
                     pixaddr += 0x100
 
         def description(self):
@@ -115,13 +115,13 @@ class SpectrumULA (object):
                                 pixdata = self.data[pixaddr]
                                 pixdata = pixdata ^ self.flash
                                 for i in range(0,8):
-                                    if (pixdata&0x1) == 0:
+                                    if (pixdata&0x80) == 0:
                                         c = bg
                                     else:
                                         c = fg
                                     pixel = self.pixels[pixaddr][i]
                                     self.canvas.itemconfigure(pixel, fill=c)
-                                    pixdata >>= 1
+                                    pixdata <<= 1
                                 pixaddr += 0x100
 
     class KeyboardIO(Device):
@@ -210,18 +210,20 @@ class SpectrumULA (object):
         return self._running
 
     def clock(self):
-        self.update()
-
-    def update(self):
-        """Call repeatedly in the main program loop to keep GUI updated."""
         if self.interrupt_handler is not None:
             self.next_interrupt_wait -= 1
             if self.next_interrupt_wait == 0:
                 self.next_interrupt_wait = self.interrupt_wait
                 self.interrupt_handler()
-                self.display.update()
-                self.window.update_idletasks()
-                self.window.update()
+                self.update()
+        else:
+            self.update()
+
+    def update(self):
+        """Call repeatedly in the main program loop to keep GUI updated."""
+        self.display.update()
+        self.window.update_idletasks()
+        self.window.update()
 
     def kill(self):
         """Destroys the main window."""

@@ -255,10 +255,10 @@ class TestRegisterFile(unittest.TestCase):
  D| 0xDD | 0xEE |E D'| 0x00 | 0x00 |E'
  H| 0x44 | 0x77 |L H'| 0x00 | 0x00 |L'
   +------+------+    +------+------+
-IX|    0xCAFE   |
-IY|    0xBABE   |
-SP|    0xBBC1   |
-PC|    0xBBC2   |
+IX|    0xCAFE   |    +-+-+-+-+-+-+-+-+
+IY|    0xBABE   |    |S|Z|5|H|3|V|N|C|
+SP|    0xBBC1   |    |1|1|1|1|1|1|1|1|
+PC|    0xBBC2   |    +-+-+-+-+-+-+-+-+
   +------+------+
  I| 0x06 | 0xD7 |R
   +------+------+

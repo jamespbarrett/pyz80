@@ -166,17 +166,41 @@ class Debugger(object):
         else:
             n = 1
 
+        watchvals = {}
+        for reg in self.watchpoints:
+            watchvals[reg] = getattr(self.cpu.reg, reg)
+
         for _ in range(0,n):
             while self.cpu.clock() != 0:
                 for comp in self.components:
                     comp.clock()
-            self.printstate()
+
+            stop = False
+            x = 0
+            for bp in self.breakpoints:
+                if self.cpu.reg.PC == bp:
+                    print "Hit breakpoint <{:02d}>".format(x)
+                    stop = True
+                x += 1
+
+            for reg in watchvals:
+                if watchvals[reg] != getattr(self.cpu.reg, reg):
+                    print "Watched value changed: {} from 0x{:02X} to 0x{:02X}".format(reg, watchvals[reg], getattr(self.cpu.reg, reg))
+                    stop = True
+
+            if stop:
+                print
+                self.printstate()
+                return
+
+        self.printstate()
 
     def _continue(self, *args):
         watchvals = {}
+        for reg in self.watchpoints:
+            watchvals[reg] = getattr(self.cpu.reg, reg)
+
         while True:
-            for reg in self.watchpoints:
-                watchvals[reg] = getattr(self.cpu.reg, reg)
             try:
                 while self.cpu.clock() != 0:
                     for comp in self.components:

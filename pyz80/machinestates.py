@@ -1042,10 +1042,11 @@ INSTRUCTION_STATES = {
     0x0F : (0, [ set_flags("--503-0C", value=lambda state : (state.cpu.reg.A >> 1) | ((state.cpu.reg.A&0x01) << 7) | ((state.cpu.reg.A&0x01) << 8), dest="A") ],
                                     [], "RRCA", 1),
     0x0A : (0, [],                  [ MR(indirect="BC", action=LDr("A")) ], "LD A,(BC)", 1),
-    0x10 : (1, [],                  [ OD(action=do_each(LDr("B", value=lambda state,v: (state.cpu.reg.B-1)&0xFF),
+    0x10 : (1, [],                  [ OD(signed=True,
+                                         action=do_each(LDr("B", value=lambda state,v: (state.cpu.reg.B-1)&0xFF),
                                                         on_condition(lambda state,v : (state.cpu.reg.B == 0x00), early_abort()),
                                                         RRr("value"))),
-                                      IO(5, True, action=JR()) ], "DJNZ", 2),
+                                      IO(5, True, action=JR()) ], "DJNZ n", 2),
     0x11 : (0, [],                  [ OD(), OD(action=LDr('DE')) ], "LD DE,nn", 3),
     0x12 : (0, [],                  [ MW(indirect="DE", source="A") ], "LD (DE),A", 1),
     0x13 : (0, [ LDr('DE', value=lambda state : (state.cpu.reg.DE + 1)&0xFFFF) ],
@@ -1089,7 +1090,7 @@ INSTRUCTION_STATES = {
     0x25 : (0, [ force_flag('H', lambda  state : 1 if (((state.cpu.reg.H)&0xF)-1 < 0x0) else 0),
                  set_flags("SZ5H3V1-", value=lambda state : state.cpu.reg.H - 1, key="value"), LDr('H') ],
                                     [], "DEC H", 1),
-    0x26 : (0, [],                  [ OD(action=LDr('H')), ], "LD H,n"),
+    0x26 : (0, [],                  [ OD(action=LDr('H')), ], "LD H,n", 2),
     0x27 : (0, [ daa() ],                  [], "DAA", 2),
     0x28 : (0, [],                  [ OD(signed=True, action=do_each(RRr("value"), unless_flag("Z", early_abort()))),
                                       IO(5, True, action=JR()) ], "JR Z,n", 2),
@@ -1499,7 +1500,7 @@ INSTRUCTION_STATES = {
     0xF7 : (1, [],                  [ SW(source="PCH"), SW(source="PCL", action=JP(0x0030)) ], "RST 30H", 1),
     0xF8 : (1, [ unless_flag('S', early_abort()) ],
                                     [ SR(), SR(action=JP()) ], "RET M", 1),
-    0xF9 : (0, [ LDrs('SP', 'HL') ], [], "LD SP,HL"),
+    0xF9 : (0, [ LDrs('SP', 'HL') ], [], "LD SP,HL", 1),
     0xFA : (0, [],                  [ OD(), OD(action=on_flag("S",JP())) ], "JP M,nn", 3),
     0xFB : (0, [ ei() ],            [], "EI", 1),
     0xFC : (0, [],                  [ OD(), OD(action=do_each(RRr("target"),
@@ -2158,7 +2159,7 @@ INSTRUCTION_STATES = {
     (0xFD, 0x36) : (0, [],                [ OD(key='address', signed=True),
                                                 OD(key='value'),
                                                 IO(5, True, transform={ 'address' : add_register('IY') }),
-                                                MW() ], "LD (IY+d),n", 3),
+                                                MW() ], "LD (IY+d),n", 4),
     (0xFD, 0x46) : (0, [],                [ OD(key='address', signed=True),
                                                 IO(5, True, transform={ 'address' : add_register('IY') }),
                                                 MR(action=LDr("B")) ], "LD B,(IY+d)", 3),
@@ -2365,15 +2366,27 @@ def disassemble_instructions(_instructions):
     ret = []
     while len(instructions) > 0:
         if instructions[0] in INSTRUCTION_STATES:
-            (code, length) = INSTRUCTION_STATES[instructions[0]][3:]
+            try:
+                (code, length) = INSTRUCTION_STATES[instructions[0]][3:]
+            except:
+                print "Error trying to disassemble 0x{:02X}".format(instructions[0])
+                raise
             if length == 0:
                 if len(instructions) > 1:
                     if (instructions[0], instructions[1]) in INSTRUCTION_STATES:
-                        (code, length) = INSTRUCTION_STATES[(instructions[0], instructions[1])][3:]
+                        try:
+                            (code, length) = INSTRUCTION_STATES[(instructions[0], instructions[1])][3:]
+                        except:
+                            print "Error trying to disassemble (0x{:02X}, 0x{:02X})".format(instructions[0], instructions[1])
+                            raise
                         if length == 0:
                             if len(instructions) > 3:
                                 if (instructions[0], instructions[1], instructions[3]) in INSTRUCTION_STATES:
-                                    (code, length) = INSTRUCTION_STATES[(instructions[0], instructions[1], instructions[3])][3:]
+                                    try:
+                                        (code, length) = INSTRUCTION_STATES[(instructions[0], instructions[1], instructions[3])][3:]
+                                    except:
+                                        print "Error trying to disassemble (0x{:02X}, 0x{:02X}, 0x{:02X})".format(instructions[0], instructions[1], instructions[3])
+                                        raise
                                 else:
                                     (code, length) = ("???", 4)
                             else:
@@ -2391,7 +2404,7 @@ def disassemble_instructions(_instructions):
         elif "n" in code and length <= len(instructions):
             data = instructions[length-1]
             code = code.replace("n", "0x{:02X}".format(data))
-        elif "+d" in code and 3 <= len(instructions):
+        if "+d" in code and 3 <= len(instructions):
             data = instructions[2]
             code = code.replace("+d", "+0x{:02X}".format(data))
 

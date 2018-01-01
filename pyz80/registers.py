@@ -148,10 +148,10 @@ class RegisterFile(object):
  D| 0x%02X | 0x%02X |E D'| 0x%02X | 0x%02X |E'
  H| 0x%02X | 0x%02X |L H'| 0x%02X | 0x%02X |L'
   +------+------+    +------+------+
-IX|    0x%04X   |
-IY|    0x%04X   |
-SP|    0x%04X   |
-PC|    0x%04X   |
+IX|    0x%04X   |    +-+-+-+-+-+-+-+-+
+IY|    0x%04X   |    |S|Z|5|H|3|V|N|C|
+SP|    0x%04X   |    |%1d|%1d|%1d|%1d|%1d|%1d|%1d|%1d|
+PC|    0x%04X   |    +-+-+-+-+-+-+-+-+
   +------+------+
  I| 0x%02X | 0x%02X |R
   +------+------+
@@ -161,7 +161,7 @@ PC|    0x%04X   |
            self.H, self.L, self._H, self._L,
            self.IX,
            self.IY,
-           self.SP,
+           self.SP, self.getflag('S'), self.getflag('Z'), self.getflag('5'), self.getflag('H'), self.getflag('3'), self.getflag('V'), self.getflag('N'), self.getflag('C'),
            self.PC,
            self.I, self.R)
 
