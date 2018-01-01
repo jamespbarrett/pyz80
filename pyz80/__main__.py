@@ -24,7 +24,7 @@ def main(args=None):
     while True:
         try:
             cpu.clock()
-            ula.update()
+            ula.clock()
         except CPUStalled as e:
             print format_exc()
             break
