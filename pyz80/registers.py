@@ -15,14 +15,10 @@ class RegisterFile(object):
         super(RegisterFile, self).__setattr__("I", 0x00)
         super(RegisterFile, self).__setattr__("R", 0x00)
 
-        super(RegisterFile, self).__setattr__("IXH", 0x00)
-        super(RegisterFile, self).__setattr__("IXL", 0x00)
-        super(RegisterFile, self).__setattr__("IYH", 0x00)
-        super(RegisterFile, self).__setattr__("IYL", 0x00)
-        super(RegisterFile, self).__setattr__("SPL", 0x00)
-        super(RegisterFile, self).__setattr__("SPH", 0x00)
-        super(RegisterFile, self).__setattr__("PCH", 0x00)
-        super(RegisterFile, self).__setattr__("PCL", 0x00)
+        super(RegisterFile, self).__setattr__("IX", 0x0000)
+        super(RegisterFile, self).__setattr__("IY", 0x0000)
+        super(RegisterFile, self).__setattr__("SP", 0x0000)
+        super(RegisterFile, self).__setattr__("PC", 0x0000)
 
         super(RegisterFile, self).__setattr__("_A", 0x00)
         super(RegisterFile, self).__setattr__("_B", 0x00)
@@ -116,25 +112,55 @@ class RegisterFile(object):
             return self.D << 8 | self.E
         elif name == "HL":
             return self.H << 8 | self.L
-        elif name == "IX":
-            return self.IXH << 8 | self.IXL
-        elif name == "IY":
-            return self.IYH << 8 | self.IYL
-        elif name == "SP":
-            return self.SPH << 8 | self.SPL
-        elif name == "PC":
-            return self.PCH << 8 | self.PCL
+        elif name == "IXH":
+            return self.IX >> 8
+        elif name == "IXL":
+            return self.IX&0xFF
+        elif name == "IYH":
+            return self.IY >> 8
+        elif name == "IYL":
+            return self.IY&0xFF
+        elif name == "SPH":
+            return self.SP >> 8
+        elif name == "SPL":
+            return self.SP&0xFF
+        elif name == "PCH":
+            return self.PC >> 8
+        elif name == "PCL":
+            return self.PC&0xFF
         raise AttributeError
 
     def __setattr__(self, name, value):
         if not isinstance(value, int):
             raise Exception("Attempt to set register {} to invalid value {}".format(name, value))
-        if name in ("AF", "BC", "DE", "HL"):
-            super(RegisterFile, self).__setattr__(name[0], (value >> 8)&0xFF)
-            super(RegisterFile, self).__setattr__(name[1], value&0xFF)
-        elif name in ("IX", "IY", "SP", "PC"):
-            super(RegisterFile, self).__setattr__(name + "H", (value >> 8)&0xFF)
-            super(RegisterFile, self).__setattr__(name + "L", value&0xFF)
+        if name == "AF":
+            super(RegisterFile, self).__setattr__('A', (value >> 8)&0xFF)
+            super(RegisterFile, self).__setattr__('F', value&0xFF)
+        elif name == "BC":
+            super(RegisterFile, self).__setattr__('B', (value >> 8)&0xFF)
+            super(RegisterFile, self).__setattr__('C', value&0xFF)
+        elif name == "DE":
+            super(RegisterFile, self).__setattr__('D', (value >> 8)&0xFF)
+            super(RegisterFile, self).__setattr__('E', value&0xFF)
+        elif name == "HL":
+            super(RegisterFile, self).__setattr__('H', (value >> 8)&0xFF)
+            super(RegisterFile, self).__setattr__('L', value&0xFF)
+        elif name == "IXH":
+            super(RegisterFile, self).__setattr__('IX', self.IXL + (value << 8))
+        elif name == "IXL":
+            super(RegisterFile, self).__setattr__('IX', (self.IXH << 8) + value)
+        elif name == "IYH":
+            super(RegisterFile, self).__setattr__('IY', self.IYL + (value << 8))
+        elif name == "IYL":
+            super(RegisterFile, self).__setattr__('IY', (self.IYH << 8) + value)
+        elif name == "SPH":
+            super(RegisterFile, self).__setattr__('SP', self.SPL + (value << 8))
+        elif name == "SPL":
+            super(RegisterFile, self).__setattr__('SP', (self.SPH << 8) + value)
+        elif name == "PCH":
+            super(RegisterFile, self).__setattr__('PC', self.PCL + (value << 8))
+        elif name == "PCL":
+            super(RegisterFile, self).__setattr__('PC', (self.PCH << 8) + value)
         else:
             getattr(self, name)
             super(RegisterFile,self).__setattr__(name, value)

@@ -4,6 +4,8 @@ from .machinestates import *
 class CPUStalled(Exception):
     pass
 
+STD_OCF = OCF()
+
 class Z80CPU(object):
     def __init__(self, iobus, membus):
         self.iobus  = iobus
@@ -11,7 +13,9 @@ class Z80CPU(object):
         self.iff1 = 0
         self.iff2 = 0
         self.int = False
-        self.pending_interrupts = []
+        self.nmi = False
+        self.pending_nmi = None
+        self.pending_interrupt = None
         self.interrupt_mode = 0
 
         self.reg = RegisterFile()
@@ -21,40 +25,32 @@ class Z80CPU(object):
 
         # This member holds all of the active instruction pipelines currently being worked on by the cpu
         # It starts off with a single pipeline containing a single OCF (Op Code Fetch) machine state
-        self.pipelines = [
-            [ OCF()().setcpu(self), ],
-            ]
+        self.pipeline = [ OCF()().setcpu(self), ]
 
     def clock(self):
         """This method executes a single clock cycle on the CPU's state machine."""
-        for pipeline in self.pipelines:
-            pipeline[0].clock(pipeline)
-            self.tick_count += 1
-        while len(self.pipelines) > 0 and len(self.pipelines[0]) == 0:
-            self.pipelines.pop(0)
-        if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
+        self.pipeline[0].clock(self.pipeline)
+        self.tick_count += 1
+        if len(self.pipeline) == 0:
             self.most_recent_instruction = None
             self.tick_count = 0
-            interrupt = None
 
-            if len([ ack for (nmi, ack) in self.pending_interrupts if nmi ]) > 0:
-                interrupt = [ (nmi, ack) for (nmi, ack) in self.pending_interrupts if nmi ][-1]
-            elif (len(self.pending_interrupts) > 0):
-                interrupt = self.pending_interrupts[-1]
-            self.pending_interrupts = []
-            if interrupt is not None:
-                self.iff1 = 0
-                if not interrupt[0]:
+            if self.int:
+                if self.nmi:
+                    self.iff1 = 0
+                    self.pipeline = interrupt_response(self, True, ack=self.pending_nmi)
+                else:
+                    self.iff1 = 0
                     self.iff2 = 0
-                self.pipelines.append(interrupt_response(self, interrupt[0], ack=interrupt[1]))
-            elif self.int == True:
-                raise Exception("Should be a processable interrupt here, but there isn't")
+                    self.pipeline = interrupt_response(self, False, ack=self.pending_interrupt)
+                self.pending_nmi       = None
+                self.pending_interrupt = None
+                self.int               = False
+                self.nmi               = False
+            else:
+                self.pipeline = [ STD_OCF().setcpu(self), ]
 
-            self.int = False
-        if all(all(not state.fetchlocked() for state in pipeline) for pipeline in self.pipelines):
-            self.pipelines.append([ OCF()().setcpu(self), ])
-
-        if len(self.pipelines) == 0:
+        if len(self.pipeline) == 0:
             raise CPUStalled("No instructions in pipeline")
 
         return self.tick_count
@@ -63,13 +59,17 @@ class Z80CPU(object):
         """Call to initiate an interrupt. Set ack to a generator taking the cpu as an argument, which will be called in response 
         to the interrupt if it is accepted, any values it yields will be used as the data on the data bus from the external interrupting device,
         otherwise 0x00 will be used. If nmi is set to True then the interrupt will be non-maskable, and will have higher priority."""
-        self.int = self.int or nmi or (self.iff1 != 0)
-        if nmi or (self.iff1 != 0):
-            self.pending_interrupts.append((nmi, ack))
+        if nmi:
+            self.pending_nmi = ack
+            self.int = True
+            self.nmi = True
+        elif self.iff1 != 0:
+            self.pending_interrupt = ack
+            self.int = True
 
     def CPU_STATE(self):
         rval = []
-        rval += [ ('\n'.join('[ ' + (', '.join(repr(state) for state in pipeline)) + ' ],' for pipeline in self.pipelines)) ]
+        rval += [ '[ ' + (', '.join(repr(state) for state in self.pipeline)) + ' ],' ]
         rval += [ """Interrupt Mode: {}, iff ({},{}), Pending Interrupts: {!r}""".format(self.interrupt_mode, self.iff1, self.iff2, self.int) ]
         return '\n\n'.join(rval)
 

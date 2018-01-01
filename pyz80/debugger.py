@@ -13,7 +13,7 @@ class Debugger(object):
             "help" : [ self.help, "print this message"],
             "list" : [ self.printstate, "print the state of the cpu and memory" ],
             "print" : [ self._print, "print a register value or location in memory" ],
-            "next"  : [ self.__next__, "advance to next instruction (or more if argument provided)" ],
+            "next"  : [ self.next, "advance to next instruction (or more if argument provided)" ],
             "breakpoint" : [ self._break, "Set a breakpoint at given address" ],
             "deletebreakpoint" : [ self.deletebreakpoint, "Remove a breakpoint" ],
             "showbreakpoints" : [ self.showbreakpoints, "Show all breakpoints" ],

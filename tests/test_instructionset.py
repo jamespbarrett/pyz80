@@ -315,9 +315,8 @@ class TestInstructionSet(unittest.TestCase):
 
         self.__class__.executed_instructions.extend(call[1][0] for call in _decode_instruction.mock_calls)
 
-        self.assertEqual(len(cpu.pipelines), 1)
-        self.assertEqual(len(cpu.pipelines[0]), 1, msg="[{}] At end of instruction pipeline still contains machine states: {!r}".format(name, cpu.pipelines[0]))
-        self.assertEqual(str(type(cpu.pipelines[0][0])), "<class 'pyz80.machinestates.OCF.<locals>._OCF'>")
+        self.assertEqual(len(cpu.pipeline), 1, msg="[{}] At end of instruction pipeline still contains machine states: {!r}".format(name, cpu.pipeline))
+        self.assertEqual(str(type(cpu.pipeline[0])), "<class 'pyz80.machinestates.OCF.<locals>._OCF'>")
 
         for action in post:
             action(self, cpu, name)
