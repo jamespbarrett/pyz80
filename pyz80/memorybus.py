@@ -25,7 +25,7 @@ class MemoryBus (object):
         mappings = sorted(mappings, key=lambda m : m[0])
         ramcount = 0
         ramstart = 0
-        for n in range(0, (size + 255)/256):
+        for n in range(0, (size + 255)//256):
             if len(mappings) > 0 and n*256 >= mappings[0][0] and n*256 < mappings[0][0] + mappings[0][1]:
                 if ramcount > 0:
                     ram = RAM(ramcount*256)
@@ -58,7 +58,7 @@ class MemoryBus (object):
         """Print a nice representation of the memory map."""
         mmap = []
         periph = None
-        for n in range(0, (len(self.pages) << 8)/granularity):
+        for n in range(0, (len(self.pages) << 8)//granularity):
             page = self.pages[(n*granularity) >> 8]
             if periph != page[1]:
                 periph = page[1]
@@ -108,7 +108,7 @@ class ROM (Peripheral):
         self.name = name
 
     def read(self, address):
-        return ord(self.data[address % self.size])
+        return self.data[address % self.size]
 
     def write(self, address, data):
         pass
@@ -118,11 +118,11 @@ class ROM (Peripheral):
 
 class FileROM (ROM):
     def __init__(self, filename):
-        with open(filename, "r") as f:
+        with open(filename, "rb") as f:
             data = bytes(f.read())
         super(FileROM, self).__init__(data, name=filename)
 
 if __name__ == "__main__": # pragma: no cover
     bus = MemoryBus(mappings=[(0x00, 0x4000, FileROM("tmp.rom"))])
 
-    print bus.memory_map(granularity=0x1000)
+    print(bus.memory_map(granularity=0x1000))

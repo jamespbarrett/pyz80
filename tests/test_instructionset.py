@@ -1,5 +1,5 @@
 import unittest
-import mock
+from unittest import mock
 
 from pyz80.machinestates import decode_instruction
 from pyz80.machinestates import INSTRUCTION_STATES
@@ -261,26 +261,34 @@ class TestInstructionSet(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        print
-        print "Instruction Coverage:"
-        print "---------------------"
+        print()
+        print("Instruction Coverage:")
+        print("---------------------")
         covered = 0
         total   = 0
-        keys = sorted(INSTRUCTION_STATES.iterkeys())
+        def combine_elements(x, a=0):
+            if isinstance(x, int):
+                return a << 8 + x
+            elif len(x) == 0:
+                return a
+            else:
+                return combine_elements(x[1:], a << 8 + x[0])
+
+        keys = sorted(INSTRUCTION_STATES.keys(), key=combine_elements)
         for i in keys:
             if i in cls.executed_instructions:
-                print "> ",
+                print("> ", end=' ')
                 covered += 1
             else:
-                print "! ",
+                print("! ", end=' ')
             if isinstance(i, int):
-                print "{:#02x}".format(i)
+                print("{:#02x}".format(i))
             else:
-                print "({:#02x},{:#02x})".format(*i)
+                print("({:#02x},{:#02x})".format(*i))
             total += 1
-        print "---------------------"
-        print "Cover: {: >7.2%}".format(float(covered)/float(total))
-        print "---------------------"
+        print("---------------------")
+        print("Cover: {: >7.2%}".format(float(covered)/float(total)))
+        print("---------------------")
 
     def execute_instructions(self, pre, instructions, t_cycles, post, name):
         IN.device.data = 0x00
@@ -309,7 +317,7 @@ class TestInstructionSet(unittest.TestCase):
 
         self.assertEqual(len(cpu.pipelines), 1)
         self.assertEqual(len(cpu.pipelines[0]), 1, msg="[{}] At end of instruction pipeline still contains machine states: {!r}".format(name, cpu.pipelines[0]))
-        self.assertEqual(str(type(cpu.pipelines[0][0])), "<class 'pyz80.machinestates._OCF'>")
+        self.assertEqual(str(type(cpu.pipelines[0][0])), "<class 'pyz80.machinestates.OCF.<locals>._OCF'>")
 
         for action in post:
             action(self, cpu, name)
@@ -982,7 +990,7 @@ class TestInstructionSet(unittest.TestCase):
 
     def test_daa(self):
         def bcd(n):
-            return (((int(n/10)%10) << 4) + (n%10))&0xFF
+            return (((int(n//10)%10) << 4) + (n%10))&0xFF
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = []
         for x in range(0,100):
@@ -1049,7 +1057,7 @@ class TestInstructionSet(unittest.TestCase):
         # actions taken first, instructions to execute, t-cycles to run for, expected conditions post, name
         tests = []
         for X in range(0,256):
-            for Y in [ (1 << n) | (1 << m) for n,m in zip(range(0,8), range(0,8)) ]:
+            for Y in [ (1 << n) | (1 << m) for n,m in zip(list(range(0,8)), list(range(0,8))) ]:
                 tests += [
                     [ [ F(X), A(Y) ], [ 0x37 ], 4, [ (PC==0x01), (F == ((X&0xC4) | (Y&0x28) | 0x01)) ], "SCF (of 0x{:X})".format(X) ],
                 ]

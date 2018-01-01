@@ -167,4 +167,4 @@ PC|    0x%04X   |    +-+-+-+-+-+-+-+-+
 
 if __name__ == "__main__": # pragma: no cover
     reg = RegisterFile()
-    print reg.registermap()
+    print(reg.registermap())

@@ -1,15 +1,15 @@
 import unittest
 from pyz80.memorybus import MemoryBus
 from pyz80.ULA import *
-import mock
+from unittest import mock
 import itertools
 
 class TestSpectrumULA(unittest.TestCase):
     def setUp(self):
         self.pixels = {}
 
-        with mock.patch('Tkinter.Tk') as tk:
-            with mock.patch('Tkinter.Canvas') as Canvas:
+        with mock.patch('tkinter.Tk') as tk:
+            with mock.patch('tkinter.Canvas') as Canvas:
                 Canvas.return_value.create_rectangle = lambda *args, **kwargs : (args[0], args[1])
                 self.UUT = SpectrumULA()
 
@@ -43,19 +43,19 @@ class TestSpectrumULA(unittest.TestCase):
 
     def assert_write_pixel(self, x, y, bg=0, fg=7, flash=False):
         self.canvas.itemconfigure.reset_mock()
-        self.UUT.display.data[0x1800 + (y/8)*32 + (x/8)] = (0x80 if flash else 0x00) + fg + (bg << 3)
+        self.UUT.display.data[0x1800 + (y//8)*32 + (x//8)] = (0x80 if flash else 0x00) + fg + (bg << 3)
         bitval = 1 << (x%8)
-        addr = 0x4000 + (x/8) + ((y&0x7) << 8) + ((y&0x38) << 2) + ((y&0xC0) << 5)
+        addr = 0x4000 + (x//8) + ((y&0x7) << 8) + ((y&0x38) << 2) + ((y&0xC0) << 5)
         self.bus.write(addr, bitval)
 
         expected_calls = []
         flip = (flash and (self.UUT.display.flash != 0x00))
         for i in range(0,8):
             if (not flip and ((1 << (7-i)) != bitval)) or (flip and ((1 << (7-i)) == bitval)):
-                expected_calls.append(mock.call((((x/8)*8 + i)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[bg][0]))
+                expected_calls.append(mock.call((((x//8)*8 + i)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[bg][0]))
             else:
-                expected_calls.append(mock.call((((x/8)*8 + i)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[fg][0]))
-        self.assertItemsEqual(self.canvas.itemconfigure.mock_calls, expected_calls)
+                expected_calls.append(mock.call((((x//8)*8 + i)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[fg][0]))
+        self.assertEqual(self.canvas.itemconfigure.mock_calls, expected_calls)
 
 
     def test_write_pixels(self):
@@ -87,7 +87,7 @@ class TestSpectrumULA(unittest.TestCase):
                 else:
                     expected_calls.append(mock.call(( (x*8 + (7 - 2*i) - 1)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[bg][0]))
                     expected_calls.append(mock.call(((x*8 + (7 - 2*i) + 0)*self.UUT.scale, (y*8 + j)*self.UUT.scale ), fill=self.UUT.display.pallette[fg][0]))
-        self.assertItemsEqual(self.canvas.itemconfigure.mock_calls, expected_calls)
+        self.assertCountEqual(self.canvas.itemconfigure.mock_calls, expected_calls)
 
     def test_write_attributes(self):
         for y in range(0,24):
@@ -118,7 +118,7 @@ class TestSpectrumULA(unittest.TestCase):
             for x in range(0,4):
                 expected_calls.append(mock.call(( (7 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[0][0]))
                 expected_calls.append(mock.call(( (6 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[7][0]))
-        self.assertItemsEqual(expected_calls, self.canvas.itemconfigure.mock_calls)
+        self.assertCountEqual(expected_calls, self.canvas.itemconfigure.mock_calls)
 
         self.canvas.itemconfigure.reset_mock()
         with mock.patch('pyz80.ULA.time', side_effect=lambda : self.UUT.display.last_flash):
@@ -135,10 +135,10 @@ class TestSpectrumULA(unittest.TestCase):
             for x in range(0,4):
                 expected_calls.append(mock.call(( (7 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[7][0]))
                 expected_calls.append(mock.call(( (6 - 2*x)*self.UUT.scale, y*self.UUT.scale), fill=self.UUT.display.pallette[0][0]))
-        self.assertItemsEqual(expected_calls, self.canvas.itemconfigure.mock_calls)
+        self.assertCountEqual(expected_calls, self.canvas.itemconfigure.mock_calls)
 
     def test_description(self):
-        self.assertIsInstance(self.UUT.display.description(), basestring)
+        self.assertIsInstance(self.UUT.display.description(), str)
 
     def test_responds_to_port(self):
         for i in range(0,128):
@@ -148,7 +148,7 @@ class TestSpectrumULA(unittest.TestCase):
     def test_keyboard_matrix(self):
         LSH = 131074
         RSH = 131076
-        PND = u'\xa3'
+        PND = '\xa3'
         NTR = '\r'
         test_data = [
             [ [],    [],    [ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF ]],
@@ -257,7 +257,7 @@ class TestSpectrumULA(unittest.TestCase):
         for data in test_data:
             for key in data[0]:
                 m = mock.MagicMock()
-                if isinstance(key, basestring):
+                if isinstance(key, str):
                     m.char = key
                 else:
                     m.char = ''
@@ -265,7 +265,7 @@ class TestSpectrumULA(unittest.TestCase):
                 self.keypress(m)
             for key in data[1]:
                 m = mock.MagicMock()
-                if isinstance(key, basestring):
+                if isinstance(key, str):
                     m.char = key
                 else:
                     m.char = ''
@@ -278,7 +278,7 @@ class TestSpectrumULA(unittest.TestCase):
 Failed to match output at 0x%02X when keys set are %r and keys unset are %r. Got 0x%02X, expected 0x%02X.\
 """ % (addr, data[0], data[1], x, data[2][a]))
 
-            for l in itertools.product(*[range(0,8) for _ in range(0,2)]):
+            for l in itertools.product(*[list(range(0,8)) for _ in range(0,2)]):
                 address = 0x00
                 expected = 0xFF
                 for n in l:

@@ -1,6 +1,6 @@
 import unittest
 from pyz80.iobus import *
-import mock
+from unittest import mock
 
 class TestIOBus(unittest.TestCase):
     def test_read(self):

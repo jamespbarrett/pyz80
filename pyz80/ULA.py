@@ -5,9 +5,9 @@ To use any of these classes the program must run a tkinter main loop."""
 
 __all__ = [ "SpectrumULA" ]
 
-import Tkinter
-from memorybus import Peripheral
-from iobus import Device
+import tkinter
+from .memorybus import Peripheral
+from .iobus import Device
 from time import time
 
 class SpectrumULA (object):
@@ -27,7 +27,7 @@ class SpectrumULA (object):
 
         def __init__(self, parent):
             self.parent = parent
-            self.canvas = Tkinter.Canvas(parent.window,
+            self.canvas = tkinter.Canvas(parent.window,
                                          width=256*parent.scale,
                                          height=192*parent.scale,
                                          bg='#000000')
@@ -77,7 +77,7 @@ class SpectrumULA (object):
                     data <<= 1
             else:
                 # This is a change to attributes, so whole 8x8 block needs updating
-                y = (addr - 0x1800)/32
+                y = (addr - 0x1800)//32
                 x = (addr - 0x1800)%32
                 fg = self.pallette[(data & 0x7)][(data >> 6)&0x1]
                 bg = self.pallette[((data >> 3) & 0x7)][(data >> 6)&0x1]
@@ -128,7 +128,7 @@ class SpectrumULA (object):
         LSHIFT = 131074
         RSHIFT = 131076
 
-        SHIFTED_DIGITS = [")",'!','@', u'\xa3','$','%','^','&','*','(']
+        SHIFTED_DIGITS = [")",'!','@', '\xa3','$','%','^','&','*','(']
 
         KEY_CODES = [
             [ '`',  'z', 'x', 'c', 'v' ],
@@ -199,7 +199,7 @@ class SpectrumULA (object):
         self.next_interrupt_wait = 0
         self.interrupt_handler = None
         self._running = True
-        self.window = Tkinter.Tk()
+        self.window = tkinter.Tk()
         self.window.protocol("WM_DELETE_WINDOW", self.kill)
         self.scale = scale
         self.display = self.DisplayAdapter(self)
@@ -231,8 +231,8 @@ class SpectrumULA (object):
         self.window.destroy()
 
 if __name__ == "__main__": # pragma: no cover
-    from memorybus import MemoryBus
-    from iobus import IOBus
+    from .memorybus import MemoryBus
+    from .iobus import IOBus
 
     ula = SpectrumULA(scale=2)
     vid = ula.display
@@ -268,5 +268,5 @@ if __name__ == "__main__": # pragma: no cover
         old_ioval = ioval
         ioval = [ io.read(0xFE, 0xFF - (1 << a)) for a in range(0,8) ]
         if ioval != old_ioval:
-            print ' '.join('%02x' % x for x in ioval)
+            print(' '.join('%02x' % x for x in ioval))
         ula.update()

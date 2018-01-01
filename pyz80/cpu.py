@@ -1,5 +1,5 @@
-from registers import RegisterFile
-from machinestates import *
+from .registers import RegisterFile
+from .machinestates import *
 
 class CPUStalled(Exception):
     pass
@@ -74,9 +74,9 @@ class Z80CPU(object):
         return '\n\n'.join(rval)
 
 if __name__ == "__main__": #pragma: no cover
-    from ULA import SpectrumULA
-    from memorybus import MemoryBus, ROM
-    from iobus import IOBus
+    from .ULA import SpectrumULA
+    from .memorybus import MemoryBus, ROM
+    from .iobus import IOBus
     from traceback import format_exc
     from time import sleep
 
@@ -99,14 +99,14 @@ if __name__ == "__main__": #pragma: no cover
     n = 0
     while True:
         try:
-            print "Tick: %d" % n
+            print("Tick: %d" % n)
             cpu.clock()
             ula.update()
-            print cpu.CPU_STATE()
-            print cpu.reg.registermap()
-            if (raw_input("Press Enter to continue (or type 'q<Enter>' to quit)... ") == 'q'):
+            print(cpu.CPU_STATE())
+            print(cpu.reg.registermap())
+            if (input("Press Enter to continue (or type 'q<Enter>' to quit)... ") == 'q'):
                 break
         except CPUStalled as e:
-            print format_exc()
+            print(format_exc())
             break
         n+=1

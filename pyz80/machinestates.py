@@ -1,3 +1,4 @@
+import collections
 __all__ = [ "MachineState", "OCF", "UnrecognisedInstructionError", "interrupt_response", "disassemble_instructions" ]
 
 class UnrecognisedInstructionError(Exception):
@@ -15,7 +16,7 @@ class UnrecognisedInstructionError(Exception):
 def JP(value=None, key=None, source=None):
     """Jump to the second parameter (an address)"""
     def _inner(state, *args):
-        if callable(value):
+        if isinstance(value, collections.Callable):
             target = value(state)
         elif value is not None:
             target = value
@@ -33,7 +34,7 @@ def JP(value=None, key=None, source=None):
 def JR(value=None, key="value"):
     """Jump to PC plus the second parameter (an address) (or other source if provided)"""
     def _inner(state, *args):
-        if callable(value):
+        if isinstance(value, collections.Callable):
             target = value(state)
         elif value is not None:
             target = value
@@ -47,7 +48,7 @@ def JR(value=None, key="value"):
 def LDr(reg, value=None, key="value"):
     """Load into the specified register"""
     def _inner(state, *args):
-        if callable(value):
+        if isinstance(value, collections.Callable):
             v = value(state, *args)
         elif value is not None:
             v = value
@@ -69,7 +70,7 @@ def RRr(n,reg=None, value=None):
     def _inner(state, *args):
         if reg is not None:
             v = getattr(state.cpu.reg, reg)
-        elif callable(value):
+        elif isinstance(value, collections.Callable):
             v = value(state, *args)
         elif value is not None:
             v = value
@@ -138,7 +139,7 @@ def inta(ds):
     """Acknowledge an interrupt, but ignore the data from the remote device"""
     def _inner(state, *args):
         try:
-            ds.next()
+            next(ds)
         except:
             pass
     return _inner
@@ -174,7 +175,7 @@ def on_condition(condition , action):
 def force_flag(flag, value):
     """Clear a flag"""
     def _inner(state, *args):
-        if callable(value):
+        if isinstance(value, collections.Callable):
             v = value(state, *args)
         else:
             v = value
@@ -201,7 +202,7 @@ def set_flags(flags="SZ5-3---", key="value", source=None, value=None, dest=None)
     """Set the flags register according to the passed value"""
     def _inner(state, *args):
         if value is not None:
-            if callable(value):
+            if isinstance(value, collections.Callable):
                 D = value(state, *args)
             else:
                 D = value
@@ -351,13 +352,13 @@ class MachineState(object):
         Can set a return value for self.clock in self.return_value. In addition when
         this generator exits the value of self.args and self.kwargs will be transferred
         to the next state in the pipeline. This is useful for passing values on."""
-        raise StopIteration
+        return
         yield None
 
     def clock(self, pipeline):
         self.pipeline = pipeline
         try:
-            return self.iter.next()
+            return next(self.iter)
         except StopIteration:
             self.pipeline.pop(0)
             if len(self.pipeline) > 0:
@@ -402,7 +403,7 @@ def OCF(prefix=None, data_source=None, extra=0):
 
             if self.data_source is not None:
                 try:
-                    inst = self.data_source.next()
+                    inst = next(self.data_source)
                 except StopIteration:
                     inst = 0x00
             else:
@@ -427,7 +428,7 @@ def OCF(prefix=None, data_source=None, extra=0):
             self.pipeline.extend(states)
             for action in actions:
                 action(self)
-            raise StopIteration
+            return
     return _OCF
 
 def OD(compound=high_after_low, action=None, key="value", signed=False):
@@ -468,7 +469,7 @@ def OD(compound=high_after_low, action=None, key="value", signed=False):
                 D = self.cpu.membus.read(PC)
             else:
                 try:
-                    D = self.data_source.next()
+                    D = next(self.data_source)
                 except StopIteration:
                     D = 0x00
             if signed and D >= 0x80:
@@ -483,7 +484,7 @@ def OD(compound=high_after_low, action=None, key="value", signed=False):
                 self.action(self, D)
             else:
                 self.kwargs[self.key] = D
-            raise StopIteration
+            return
     return _OD
 
 def MR(address=None, indirect=None, compound=high_after_low, action=None, incaddr=True, verbose=False):
@@ -528,35 +529,35 @@ def MR(address=None, indirect=None, compound=high_after_low, action=None, incadd
                     else:
                         self.address = self.kwargs['address']
                         if self.verbose:
-                            print "MR: Address 0x{:X} taken from kwargs[{}]".format(self.address, 'address')
+                            print("MR: Address 0x{:X} taken from kwargs[{}]".format(self.address, 'address'))
                 else:
                     self.address = getattr(self.cpu.reg, self.indirect)
                     if self.verbose:
-                        print "MR: Address 0x{:X} taken from register {}".format(self.address, self.indirect)
+                        print("MR: Address 0x{:X} taken from register {}".format(self.address, self.indirect))
             yield
 
             D = self.cpu.membus.read(self.address)
             if self.verbose:
-                print "MR: Data 0x{:X} read from address 0x{:X}".format(D, self.address)
+                print("MR: Data 0x{:X} read from address 0x{:X}".format(D, self.address))
             yield
 
             if 'value' in self.kwargs and self.compound is not None:
                 D = self.compound(D, self.kwargs['value'])
                 if self.verbose:
-                    print "MR: Compound data with 0x{:X} to get 0x{:X}".format(self.kwargs['value'], D)
+                    print("MR: Compound data with 0x{:X} to get 0x{:X}".format(self.kwargs['value'], D))
             if self.incaddr:
                 self.kwargs['address'] = self.address + 1
                 if self.verbose:
-                    print "MR: Increment address to 0x{:X}".format(self.kwargs['address'])
+                    print("MR: Increment address to 0x{:X}".format(self.kwargs['address']))
             if self.action is not None:
                 self.action(self, D)
                 if self.verbose:
-                    print "MR: Performing Action"
+                    print("MR: Performing Action")
             else:
                 self.kwargs['value'] = D
                 if self.verbose:
-                    print "MR: Setting 'value' in kwargs to 0x{:X}".format(D)
-            raise StopIteration
+                    print("MR: Setting 'value' in kwargs to 0x{:X}".format(D))
+            return
 
     return _MR
 
@@ -603,11 +604,11 @@ def MW(address=None, indirect=None, value=None, source=None, action=None, extra=
                     else:
                         self.address = self.kwargs['address']
                         if self.verbose:
-                            print "MW: Address 0x{:X} from kwargs".format(self.address)
+                            print("MW: Address 0x{:X} from kwargs".format(self.address))
                 else:
                     self.address = getattr(self.cpu.reg, self.indirect)
                     if self.verbose:
-                        print "MW: Address 0x{:X} from register {}".format(self.address, self.indirect)
+                        print("MW: Address 0x{:X} from register {}".format(self.address, self.indirect))
             yield
 
             if self.value is None:
@@ -617,23 +618,23 @@ def MW(address=None, indirect=None, value=None, source=None, action=None, extra=
                     else:
                         self.value = self.kwargs['value']
                         if self.verbose:
-                            print "MW: Value 0x{:X} from kwargs".format(self.value)
+                            print("MW: Value 0x{:X} from kwargs".format(self.value))
                 else:
                     self.value = getattr(self.cpu.reg, self.source)
                     if self.verbose:
-                        print "MW: Value 0x{:X} from register {}".format(self.value, self.source)
-            elif callable(self.value):
+                        print("MW: Value 0x{:X} from register {}".format(self.value, self.source))
+            elif isinstance(self.value, collections.Callable):
                 self.value = self.value(self)
                 if self.verbose:
-                    print "MW: Value 0x{:X} from callable".format(self.value)
+                    print("MW: Value 0x{:X} from callable".format(self.value))
             yield
 
             self.cpu.membus.write(self.address, self.value)
             if self.verbose:
-                print "MW: Writing 0x{:X} to 0x{:X}".format(self.value, self.address)
+                print("MW: Writing 0x{:X} to 0x{:X}".format(self.value, self.address))
             self.kwargs['address'] = self.address + 1
             if self.verbose:
-                print "MW: Increment Address to 0x{:X}".format(self.kwargs['address'])
+                print("MW: Increment Address to 0x{:X}".format(self.kwargs['address']))
 
             for n in range(0,self.extra):
                 yield
@@ -641,8 +642,8 @@ def MW(address=None, indirect=None, value=None, source=None, action=None, extra=
             if self.action is not None:
                 self.action(self, self.value)
                 if self.verbose:
-                    print "MW: Taking action"
-            raise StopIteration
+                    print("MW: Taking action")
+            return
         
     return _MW
 
@@ -692,7 +693,7 @@ def SR(compound=high_after_low, action=None, extra=0):
             self.cpu.reg.SP = self.cpu.reg.SP + 1
             if self.action is not None:
                 self.action(self, D)
-            raise StopIteration
+            return
 
     return _SR
 
@@ -743,7 +744,7 @@ def SW(source=None, key='value', extra=0, action=None):
 
             if self.action is not None:
                 self.action(self, D)
-            raise StopIteration
+            return
 
     return _SW
 
@@ -779,15 +780,15 @@ def IO(ticks, locked, transform=None, action=None, key="value"):
 
         def run(self):
             for key in self.kwargs:
-                if callable(self.transform) and key == self.key:
+                if isinstance(self.transform, collections.Callable) and key == self.key:
                     self.kwargs[key] = self.transform(self, self.kwargs[key])
                 elif isinstance(self.transform, dict) and key in self.transform:
                     self.kwargs[key] = self.transform[key](self, self.kwargs[key])
             for n in range(0,self.ticks - 1):
                 yield
-            if callable(self.action):
+            if isinstance(self.action, collections.Callable):
                 self.action(self)
-            raise StopIteration
+            return
         
     return _IO
 
@@ -843,9 +844,9 @@ def PR(high=None, low=None, action=None, dest=None):
 
             self.kwargs['value'] = D
 
-            if callable(self.action):
+            if isinstance(self.action, collections.Callable):
                 self.action(self, D)
-            raise StopIteration
+            return
 
     return _PR
 
@@ -903,9 +904,9 @@ def PW(high=None, low=None, action=None, source=None):
 
             self.kwargs['value'] = D
 
-            if callable(self.action):
+            if isinstance(self.action, collections.Callable):
                 self.action(self, D)
-            raise StopIteration
+            return
 
     return _PW
 
@@ -2369,7 +2370,7 @@ def disassemble_instructions(_instructions):
             try:
                 (code, length) = INSTRUCTION_STATES[instructions[0]][3:]
             except:
-                print "Error trying to disassemble 0x{:02X}".format(instructions[0])
+                print("Error trying to disassemble 0x{:02X}".format(instructions[0]))
                 raise
             if length == 0:
                 if len(instructions) > 1:
@@ -2377,7 +2378,7 @@ def disassemble_instructions(_instructions):
                         try:
                             (code, length) = INSTRUCTION_STATES[(instructions[0], instructions[1])][3:]
                         except:
-                            print "Error trying to disassemble (0x{:02X}, 0x{:02X})".format(instructions[0], instructions[1])
+                            print("Error trying to disassemble (0x{:02X}, 0x{:02X})".format(instructions[0], instructions[1]))
                             raise
                         if length == 0:
                             if len(instructions) > 3:
@@ -2385,7 +2386,7 @@ def disassemble_instructions(_instructions):
                                     try:
                                         (code, length) = INSTRUCTION_STATES[(instructions[0], instructions[1], instructions[3])][3:]
                                     except:
-                                        print "Error trying to disassemble (0x{:02X}, 0x{:02X}, 0x{:02X})".format(instructions[0], instructions[1], instructions[3])
+                                        print("Error trying to disassemble (0x{:02X}, 0x{:02X}, 0x{:02X})".format(instructions[0], instructions[1], instructions[3]))
                                         raise
                                 else:
                                     (code, length) = ("???", 4)

@@ -1,7 +1,7 @@
-from ULA import SpectrumULA
-from cpu import Z80CPU, CPUStalled
-from memorybus import MemoryBus, FileROM
-from iobus import IOBus
+from .ULA import SpectrumULA
+from .cpu import Z80CPU, CPUStalled
+from .memorybus import MemoryBus, FileROM
+from .iobus import IOBus
 from time import time,sleep
 from traceback import format_exc
 import pkg_resources
@@ -26,32 +26,32 @@ def main(args=None):
             cpu.clock()
             ula.clock()
         except CPUStalled as e:
-            print format_exc()
+            print(format_exc())
             break
         except:
-            print format_exc()
-            print
+            print(format_exc())
+            print()
             inst = cpu.most_recent_instruction
             if isinstance(inst, tuple):
                 inst = "(" + ', '.join( "0x{:02X}".format(i) for i in inst ) + ")"
             elif isinstance(inst, int):
                 inst = "0x{:02X}".format(inst)
-            print "Most recent instruction processed: {!r}".format(inst)
-            print "On t-state number: {}".format(cpu.tick_count)
-            print
-            print cpu.CPU_STATE()
-            print
-            print cpu.reg.registermap()
-            print
-            print "Memory around PC:"
+            print("Most recent instruction processed: {!r}".format(inst))
+            print("On t-state number: {}".format(cpu.tick_count))
+            print()
+            print(cpu.CPU_STATE())
+            print()
+            print(cpu.reg.registermap())
+            print()
+            print("Memory around PC:")
             PC = cpu.reg.PC
             start = max(0, PC - 8)
             for n in range(start, start + 16):
                 if n != PC:
-                    print "0x{:04X} : 0x{:02X}".format(n,cpu.membus.read(n))
+                    print("0x{:04X} : 0x{:02X}".format(n,cpu.membus.read(n)))
                 else:
-                    print "0x{:04X} : 0x{:02X} <-- (PC)".format(n,cpu.membus.read(n))
-            print
+                    print("0x{:04X} : 0x{:02X} <-- (PC)".format(n,cpu.membus.read(n)))
+            print()
             break
         n+=1
 

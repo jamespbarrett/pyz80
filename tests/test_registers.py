@@ -1,6 +1,6 @@
 import unittest
 from pyz80.registers import *
-import mock
+from unittest import mock
 import itertools
 
 class TestRegisterFile(unittest.TestCase):

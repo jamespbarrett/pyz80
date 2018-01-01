@@ -1,15 +1,15 @@
 import unittest
 from pyz80.memorybus import *
-import mock
+from unittest import mock
 
 class TestMemoryBus(unittest.TestCase):
     @mock.patch("pyz80.memorybus.open")
     def setUp(self, _open):
         _open.return_value.__enter__.return_value = _open.return_value
-        _open.return_value.read.return_value = (''.join('%c' % n for n in range(0,256)))*0x40
+        _open.return_value.read.return_value = range(0,256)
         self.UUT = MemoryBus(mappings=[(0x00, 0x4000, FileROM("tmp.rom")),
                                        (0x4000, 0x4000, Peripheral())])
-        _open.assert_called_once_with("tmp.rom", "r")
+        _open.assert_called_once_with("tmp.rom", "rb")
         _open.return_value.read.assert_called_once_with()
 
     def test_init(self):

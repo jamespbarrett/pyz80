@@ -2,7 +2,7 @@ A simple emulator for the Zilog Z80 CPU writtern in pure python, with some abili
 
 There are two methods of invoking:
 
-> python -m pyz80
+> python3 -m pyz80
 
 will launch a graphical window containing the spectrum display and load up the 48K spectrum OS ROM then start running.
 
@@ -10,7 +10,7 @@ Currently it progresses as far as the copyright screen and then appears to hang 
 
 
 
-> python -m pyz80.debugger
+> python3 -m pyz80.debugger
 
 will launch a graphical windows containing the spectrum display and load up the 48K spectrum OS ROM and then present an interactive
 debugger on the terminal from which it is invoked. The commands on this debugger are fairly standard (and listable with "help") and it
